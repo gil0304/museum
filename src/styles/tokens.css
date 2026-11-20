@@ -1,0 +1,83 @@
+/* MUSEUM デザイントークン（TMS 32）。色・文字・余白・角丸・影・重なり順の正本。
+   方針と使い分けは docs/DESIGN.md。値を変えるときはコントラスト比も確認する（同ドキュメントの表）。 */
+:root {
+  /* ---- 色：外枠（暗いチャコール）---- */
+  --c-ink-900: #101214; /* アプリの背景・外枠 */
+  --c-ink-800: #1b1e21; /* 暗いパネル・上部バー */
+  --c-ink-700: #2a2d31; /* 暗い面の境界線 */
+  --c-ink-600: #3a3e43; /* 暗い面のホバー */
+  --c-on-dark: #f3f1eb; /* 暗い面の本文 */
+  --c-on-dark-muted: #a4a49e; /* 暗い面の補助文 */
+
+  /* ---- 色：紙（明るいパネル・作品の台紙）---- */
+  --c-paper: #f7f4ef; /* 明るいパネル */
+  --c-paper-2: #f4efe6; /* HTML作品の台紙・カード */
+  --c-paper-line: #ddd3c2; /* 明るい面の境界線 */
+  --c-text: #1d2325; /* 明るい面の本文 */
+  --c-text-muted: #5c564d; /* 明るい面の補助文 */
+
+  /* ---- 色：展示室（3D）---- */
+  --c-scene-bg: #d6d5d1; /* 展示室の背景（3D が出るまでの下地にも使う） */
+  --c-scene-wall: #eeebe5;
+  --c-scene-floor: #b9b2a8;
+  --c-on-scene: #262a2b; /* 展示室の上に重ねる文字 */
+  --c-on-scene-muted: #464b4b;
+
+  /* ---- 色：役割 ---- */
+  --c-accent: #c9a86a; /* 真鍮色。ブランド・選択中の強調・暗い面のアクセント */
+  --c-accent-text: #7a5a2b; /* 明るい面に置くアクセントの文字 */
+  --c-action: #232b2b; /* 主ボタン（明るい面の上） */
+  --c-action-hover: #34403f;
+  --c-danger: #b8322c; /* 削除など取り消しにくい操作 */
+  --c-success: #4f8a5b;
+  --c-focus: #2d6cdf; /* フォーカス枠（明るい面） */
+  --c-focus-on-dark: #5b8def; /* フォーカス枠（暗い面） */
+
+  /* ---- 文字 ---- */
+  /* Webフォントは読み込まない（静的配信・軽さ優先）。端末の明朝・ゴシックを使う */
+  --font-display: Georgia, 'Hiragino Mincho ProN', 'Yu Mincho', 'YuMincho', serif; /* 見出し・作品名・ロゴ */
+  --font-ui: Inter, -apple-system, BlinkMacSystemFont, 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Meiryo', sans-serif; /* 操作UI・本文 */
+  --font-mono: ui-monospace, 'SFMono-Regular', Menlo, monospace; /* 小見出しラベル・座標 */
+
+  --fs-xs: 11px; /* ヒント・注記 */
+  --fs-sm: 12px; /* パネル本文・ボタン小 */
+  --fs-md: 13px; /* UI 本文 */
+  --fs-lg: 15px; /* ボタン大・強調 */
+  --fs-xl: 20px; /* パネル見出し */
+  --fs-2xl: 27px; /* 作品名 */
+  --fs-hero: clamp(32px, 4vw, 58px); /* タイトル画面の見出し */
+  --lh-tight: 1.3;
+  --lh-body: 1.8;
+  --ls-eyebrow: 0.24em; /* 小見出しラベル（EXHIBIT / 001 など） */
+  --ls-brand: 0.17em;
+
+  /* ---- 余白（4px 単位）---- */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+
+  /* ---- 角丸・影 ---- */
+  --r-1: 4px;
+  --r-2: 8px;
+  --r-3: 12px;
+  --shadow-panel: 0 16px 40px rgba(0, 0, 0, 0.13);
+  --shadow-dialog: 0 24px 64px rgba(0, 0, 0, 0.5);
+
+  /* ---- 重なり順（3D ビューの上に UI を重ねる）---- */
+  --z-viewport: 0;
+  --z-hud: 10; /* ヒント・座標表示 */
+  --z-panel: 20; /* 作品情報・インスペクタ */
+  --z-toolbar: 30; /* 上部バー・ツールパレット */
+  --z-dialog: 100; /* ダイアログ・HTML作品の代替表示 */
+
+  /* ---- レイアウト ---- */
+  --topbar-h: 56px;
+  --palette-w: 64px;
+  --inspector-w: 300px;
+  --bp-mobile: 700px; /* 参考値（メディアクエリには直接書く） */
+}

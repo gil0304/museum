@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MUSEUM スタイルガイド</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <style>
+      /* このページ専用の並べ方（製品の CSS には入れない） */
+      body { padding: var(--s-6) clamp(16px, 4vw, 56px) var(--s-8); }
+      .sg h1 { font: 400 32px / 1.2 var(--font-display); letter-spacing: var(--ls-brand); margin: 0 0 var(--s-2); }
+      .sg > p { color: var(--c-on-dark-muted); font-size: var(--fs-md); margin: 0 0 var(--s-6); }
+      .sg section { margin: 0 0 var(--s-7); }
+      .sg > section > h2 { font: 600 var(--fs-sm) / 1 var(--font-mono); letter-spacing: var(--ls-eyebrow); color: var(--c-accent); margin: 0 0 var(--s-4); }
+      .sg h3 { font: 600 var(--fs-md) var(--font-ui); color: var(--c-on-dark); margin: var(--s-5) 0 var(--s-3); }
+      .sg .note { color: var(--c-on-dark-muted); font-size: var(--fs-sm); line-height: var(--lh-body); margin: var(--s-2) 0 0; }
+      .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--s-3); }
+      .swatch { border: 1px solid var(--c-ink-700); border-radius: var(--r-2); overflow: hidden; background: var(--c-ink-800); }
+      .swatch i { display: block; height: 56px; }
+      .swatch span { display: block; padding: var(--s-2) var(--s-3); font: var(--fs-xs) / 1.5 var(--font-mono); color: var(--c-on-dark-muted); }
+      .swatch b { display: block; color: var(--c-on-dark); font-weight: 600; }
+      .type-row { display: grid; grid-template-columns: 160px 1fr; gap: var(--s-4); align-items: baseline; padding: var(--s-3) 0; border-bottom: 1px solid var(--c-ink-700); }
+      .type-row code { font: var(--fs-xs) var(--font-mono); color: var(--c-on-dark-muted); }
+      .row { display: flex; flex-wrap: wrap; gap: var(--s-3); align-items: center; }
+      .surface { padding: var(--s-5); border-radius: var(--r-2); }
+      .surface--paper { background: var(--c-paper); color: var(--c-text); }
+      .surface--dark { background: var(--c-ink-800); border: 1px solid var(--c-ink-700); }
+      .layouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 560px), 1fr)); gap: var(--s-5); }
+      .mock { position: relative; aspect-ratio: 16 / 10; overflow: hidden; border-radius: var(--r-2); border: 1px solid var(--c-ink-700); background: linear-gradient(180deg, #e2e0dc 0 42%, var(--c-scene-floor) 42% 100%); font-size: var(--fs-sm); }
+      .mock--phone { aspect-ratio: 9 / 17; max-width: 300px; }
+      .mock .m-topbar { position: absolute; }
+      .mock .wall-art { position: absolute; top: 22%; width: 16%; aspect-ratio: 4 / 3; background: #517e87; outline: 6px solid #262c30; }
+      .mock .html-work { position: absolute; top: 20%; left: 44%; width: 15%; aspect-ratio: 1; background: var(--c-paper-2); outline: 5px solid #262c30; display: grid; place-items: center; font: 600 9px var(--font-ui); color: var(--c-text); }
+      .mock .info { position: absolute; right: var(--s-4); bottom: var(--s-4); width: 42%; padding: var(--s-4); z-index: var(--z-panel); }
+      .mock .info h2 { font-size: var(--fs-xl); }
+      .mock .inspector { position: absolute; z-index: var(--z-panel); top: calc(var(--topbar-h) + var(--s-4)); right: var(--s-4); width: 34%; padding: var(--s-4); }
+      .mock .inspector dl { display: grid; grid-template-columns: auto 1fr; gap: var(--s-1) var(--s-3); margin: var(--s-3) 0 0; font-size: var(--fs-xs); }
+      .mock .inspector dt { color: var(--c-on-dark-muted); }
+      .mock .grid-overlay { position: absolute; inset: 42% 0 0 0; background-image: linear-gradient(rgba(255,255,255,.35) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.35) 1px, transparent 1px); background-size: 28px 28px; }
+      .mock .ghost-wall { position: absolute; left: 38%; top: 52%; width: 22%; height: 10%; background: color-mix(in srgb, var(--c-accent) 55%, transparent); outline: 2px dashed var(--c-accent); }
+      .mock .title-hero { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; gap: var(--s-3); padding: 0 8%; color: var(--c-on-scene); background: linear-gradient(90deg, rgba(214,213,209,.92) 0 45%, rgba(214,213,209,0) 75%); }
+      .mock .title-hero .m-hero { font-size: 30px; }
+      .mock .sheet { position: absolute; inset: auto 0 0 0; z-index: var(--z-panel); border-radius: var(--r-3) var(--r-3) 0 0; padding: var(--s-4); }
+      .mock .sheet::before { content: ''; display: block; width: 36px; height: 4px; margin: 0 auto var(--s-3); border-radius: 2px; background: var(--c-paper-line); }
+      .mock-label { margin: var(--s-2) 0 0; font-size: var(--fs-sm); color: var(--c-on-dark-muted); line-height: 1.6; }
+    </style>
+  </head>
+  <body>
+    <div class="sg">
+      <h1>MUSEUM スタイルガイド</h1>
+      <p>TMS 32。色・文字・部品・画面レイアウトの見本。値の正本は <code>src/styles/tokens.css</code>、部品は <code>src/styles/components.css</code>、方針は <code>docs/DESIGN.md</code>。</p>
+
+      <section>
+        <h2>COLOR</h2>
+        <div class="swatches" id="swatches"></div>
+        <p class="note">文字と背景の組み合わせは WCAG AA（本文 4.5 以上、大きな文字・UI 部品 3 以上）を満たす値にしている（docs/DESIGN.md の表）。</p>
+      </section>
+
+      <section>
+        <h2>TYPOGRAPHY</h2>
+        <div class="type-row"><code>--fs-hero / display</code><p class="m-hero">作品を飾る場所を、自分でつくる。</p></div>
+        <div class="type-row"><code>--fs-2xl / display</code><div class="m-title" style="font-size: var(--fs-2xl)">はじまりの光 — First Light</div></div>
+        <div class="type-row"><code>--fs-xl / ui 600</code><div style="font: 600 var(--fs-xl) var(--font-ui)">展示室を建てる</div></div>
+        <div class="type-row"><code>--fs-md / ui</code><div style="font-size: var(--fs-md); line-height: var(--lh-body)">床と壁をグリッドに置き、作品を飾って、その中を歩いて鑑賞できます。</div></div>
+        <div class="type-row"><code>--fs-xs / ui</code><div style="font-size: var(--fs-xs); color: var(--c-on-dark-muted)">ドラッグ：視点回転 ・ WASD：移動 ・ クリック：作品を見る</div></div>
+        <div class="type-row"><code>eyebrow / mono</code><div class="m-eyebrow" style="color: var(--c-accent)">Exhibit / 001</div></div>
+        <div class="type-row"><code>kbd</code><div><span class="m-kbd">W</span> <span class="m-kbd">A</span> <span class="m-kbd">S</span> <span class="m-kbd">D</span> <span class="m-kbd">Esc</span></div></div>
+      </section>
+
+      <section>
+        <h2>BUTTONS</h2>
+        <h3>明るい面</h3>
+        <div class="surface surface--paper row">
+          <button class="m-btn m-btn--primary m-btn--lg">サンプル美術館に入る</button>
+          <button class="m-btn m-btn--secondary m-btn--lg">空の部屋から作る</button>
+          <button class="m-btn m-btn--primary">保存</button>
+          <button class="m-btn m-btn--secondary">キャンセル</button>
+          <button class="m-btn m-btn--ghost">ヘルプ</button>
+          <button class="m-btn m-btn--danger">削除</button>
+          <button class="m-btn m-btn--primary" disabled>無効</button>
+        </div>
+        <h3>暗い面</h3>
+        <div class="surface surface--dark m-on-dark row">
+          <button class="m-btn m-btn--primary">続きから</button>
+          <button class="m-btn m-btn--secondary">JSON書き出し</button>
+          <button class="m-btn m-btn--ghost m-btn--sm">メニュー</button>
+          <div class="m-segment" role="group" aria-label="モード"><button aria-pressed="true">鑑賞</button><button aria-pressed="false">編集</button></div>
+          <span class="m-badge">◆ 操作できるHTML作品</span>
+        </div>
+        <p class="note">Tab キーでフォーカス枠を確認できる（明るい面は青 #2d6cdf、暗い面は明るい青 #5b8def）。</p>
+      </section>
+
+      <section>
+        <h2>PANELS</h2>
+        <div class="row" style="align-items: stretch">
+          <div class="m-panel" style="max-width: 300px">
+            <div class="m-eyebrow">Exhibit / 001</div>
+            <h2>First Light</h2>
+            <p class="m-muted">油彩・2026 ／ 作者名</p>
+            <p>作品の解説文。展示室の中で作品をクリックすると、このパネルで作品名と解説が表示される。</p>
+            <button class="m-btn m-btn--secondary m-btn--sm">閉じる</button>
+          </div>
+          <div class="m-panel m-panel--dark m-on-dark" style="max-width: 300px">
+            <div class="m-eyebrow">Inspector</div>
+            <h2>壁 #12</h2>
+            <p class="m-muted">位置 (3, 0, -2) ／ 向き 東</p>
+            <div class="row"><button class="m-btn m-btn--secondary m-btn--sm">回転</button><button class="m-btn m-btn--danger m-btn--sm">削除</button></div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>LAYOUT</h2>
+        <div class="layouts">
+          <div>
+            <div class="mock">
+              <div class="wall-art" style="left: 58%; background: #d3a575"></div>
+              <div class="title-hero">
+                <div class="m-eyebrow">MUSEUM</div>
+                <p class="m-hero">自分の世界を、<br />美術館にする。</p>
+                <div class="row">
+                  <button class="m-btn m-btn--primary">サンプル美術館に入る</button>
+                  <button class="m-btn m-btn--secondary">空の部屋から作る</button>
+                </div>
+                <button class="m-btn m-btn--ghost m-btn--sm" style="align-self: flex-start">続きから（前回の編集）</button>
+              </div>
+            </div>
+            <p class="mock-label"><b>① タイトル画面（TMS 33）</b>：背景は実際のサンプル展示室（3D）。左に見出しと2つのボタン。主ボタンは「サンプル美術館に入る」。</p>
+          </div>
+          <div>
+            <div class="mock">
+              <div class="m-topbar">
+                <span class="m-brand">MUSEUM</span>
+                <div class="m-segment"><button aria-pressed="true">鑑賞</button><button aria-pressed="false">編集</button></div>
+                <div class="m-topbar__group"><button class="m-btn m-btn--ghost m-btn--sm">ヘルプ</button><button class="m-btn m-btn--ghost m-btn--sm">メニュー</button></div>
+              </div>
+              <div class="wall-art" style="left: 18%"></div>
+              <div class="html-work">HTML作品</div>
+              <div class="wall-art" style="left: 70%; background: #d3a575"></div>
+              <div class="m-panel info">
+                <div class="m-eyebrow">Exhibit / 001</div>
+                <h2>First Light</h2>
+                <p>作品をクリックすると解説を表示。</p>
+              </div>
+              <div class="m-hint">ドラッグ：視点 ・ <span class="m-kbd">W</span><span class="m-kbd">A</span><span class="m-kbd">S</span><span class="m-kbd">D</span>：移動</div>
+            </div>
+            <p class="mock-label"><b>② PC・鑑賞モード</b>：3D は画面全体。上部バー（ロゴ／鑑賞・編集の切替／ヘルプ・メニュー）、右下に作品情報、左下に操作ヒント。</p>
+          </div>
+          <div>
+            <div class="mock">
+              <div class="m-topbar">
+                <span class="m-brand">MUSEUM</span>
+                <div class="m-segment"><button aria-pressed="false">鑑賞</button><button aria-pressed="true">編集</button></div>
+                <div class="m-topbar__group"><button class="m-btn m-btn--ghost m-btn--sm">保存済み</button><button class="m-btn m-btn--ghost m-btn--sm">メニュー</button></div>
+              </div>
+              <div class="grid-overlay"></div>
+              <div class="ghost-wall"></div>
+              <nav class="m-palette" aria-label="ツール">
+                <button aria-pressed="false">選択</button>
+                <button aria-pressed="false">床</button>
+                <button aria-pressed="true">壁</button>
+                <button aria-pressed="false">作品</button>
+                <button aria-pressed="false">削除</button>
+              </nav>
+              <div class="m-panel m-panel--dark m-on-dark inspector">
+                <div class="m-eyebrow">Inspector</div>
+                <dl><dt>種類</dt><dd>壁</dd><dt>位置</dt><dd>(3, 0, -2)</dd><dt>向き</dt><dd>東</dd></dl>
+              </div>
+              <div class="m-hint m-hint--with-palette" style="color: var(--c-on-scene)">グリッド (3, -2) ・ クリック：配置 ・ <span class="m-kbd">R</span>：回転</div>
+            </div>
+            <p class="mock-label"><b>③ PC・編集モード</b>：視点は斜め上から。左にツールパレット、右に選択中のパーツの情報（インスペクタ）、床にグリッドと配置プレビュー（真鍮色）。</p>
+          </div>
+          <div>
+            <div class="mock mock--phone">
+              <div class="m-topbar" style="height: 48px">
+                <span class="m-brand" style="font-size: 15px">MUSEUM</span>
+                <button class="m-btn m-btn--ghost m-btn--sm">メニュー</button>
+              </div>
+              <div class="wall-art" style="left: 12%; width: 34%"></div>
+              <div class="html-work" style="left: 56%; width: 30%">HTML作品</div>
+              <div class="m-panel sheet">
+                <div class="m-eyebrow">Exhibit / 001</div>
+                <h2 style="font-size: var(--fs-xl)">First Light</h2>
+                <p>下から出るシートで解説を表示。編集はPCで。</p>
+              </div>
+            </div>
+            <p class="mock-label"><b>④ スマホ・鑑賞のみ</b>（幅 700px 以下）：上部バーは小さく、編集の切替は出さない。作品情報は下からのシート。</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script type="module">
+      // 色見本は tokens.css の値を読んで表示する（値の二重管理をしない）
+      const names = [
+        ['--c-ink-900', '外枠の背景'], ['--c-ink-800', '暗いパネル'], ['--c-ink-700', '暗い境界線'], ['--c-on-dark', '暗い面の本文'], ['--c-on-dark-muted', '暗い面の補助文'],
+        ['--c-paper', '明るいパネル'], ['--c-paper-2', 'HTML作品の台紙'], ['--c-text', '明るい面の本文'], ['--c-text-muted', '明るい面の補助文'],
+        ['--c-scene-bg', '展示室の背景'], ['--c-scene-wall', '壁'], ['--c-scene-floor', '床'],
+        ['--c-accent', 'アクセント（真鍮）'], ['--c-accent-text', 'アクセント文字'], ['--c-action', '主ボタン'], ['--c-danger', '削除'], ['--c-success', '成功'], ['--c-focus', 'フォーカス枠'],
+      ];
+      const css = getComputedStyle(document.documentElement);
+      document.getElementById('swatches').innerHTML = names
+        .map(([v, label]) => `<div class="swatch"><i style="background: var(${v})"></i><span><b>${label}</b>${v}<br>${css.getPropertyValue(v).trim()}</span></div>`)
+        .join('');
+    </script>
+  </body>
+</html>

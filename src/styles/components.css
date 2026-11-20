@@ -1,0 +1,86 @@
+/* MUSEUM 共通部品（TMS 32）。クラス名は m- で始める。見本は spikes/style-guide.html、方針は docs/DESIGN.md */
+
+/* ---- 共通 ---- */
+:focus-visible { outline: 3px solid var(--c-focus); outline-offset: 2px; }
+.m-on-dark :focus-visible, .m-topbar :focus-visible, .m-palette :focus-visible { outline-color: var(--c-focus-on-dark); }
+.m-visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---- 文字 ---- */
+.m-eyebrow { font: var(--fs-xs) / 1 var(--font-mono); letter-spacing: var(--ls-eyebrow); text-transform: uppercase; }
+.m-title { font-family: var(--font-display); font-weight: 400; line-height: var(--lh-tight); }
+.m-hero { font-family: var(--font-display); font-weight: 400; font-size: var(--fs-hero); line-height: var(--lh-tight); margin: 0; }
+.m-brand { font-family: var(--font-display); letter-spacing: var(--ls-brand); }
+.m-kbd { display: inline-block; min-width: 1.6em; padding: 1px 6px; border: 1px solid currentColor; border-radius: var(--r-1); font: 600 var(--fs-xs) / 1.4 var(--font-mono); text-align: center; opacity: 0.85; }
+
+/* ---- ボタン ---- */
+.m-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2);
+  min-height: 40px; padding: 0 var(--s-5); border: 1px solid transparent; border-radius: var(--r-1);
+  font: 600 var(--fs-md) / 1 var(--font-ui); letter-spacing: 0.02em; cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+.m-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.m-btn--lg { min-height: 48px; padding: 0 var(--s-6); font-size: var(--fs-lg); }
+.m-btn--sm { min-height: 32px; padding: 0 var(--s-3); font-size: var(--fs-sm); }
+.m-btn--primary { background: var(--c-action); color: #fff; border-color: var(--c-action); }
+.m-btn--primary:hover:not(:disabled) { background: var(--c-action-hover); }
+.m-btn--secondary { background: transparent; color: var(--c-text); border-color: currentColor; }
+.m-btn--secondary:hover:not(:disabled) { background: rgba(0, 0, 0, 0.06); }
+.m-btn--ghost { background: transparent; color: inherit; }
+.m-btn--ghost:hover:not(:disabled) { background: rgba(127, 127, 127, 0.15); }
+.m-btn--danger { background: var(--c-danger); color: #fff; border-color: var(--c-danger); }
+.m-btn--icon { width: 40px; padding: 0; }
+/* 暗い面の上 */
+.m-on-dark .m-btn--primary, .m-topbar .m-btn--primary { background: var(--c-on-dark); color: var(--c-ink-900); border-color: var(--c-on-dark); }
+.m-on-dark .m-btn--secondary, .m-topbar .m-btn--secondary { color: var(--c-on-dark); }
+.m-on-dark .m-btn--secondary:hover:not(:disabled), .m-topbar .m-btn--secondary:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); }
+
+/* ---- 鑑賞 / 編集 の切替（セグメント）---- */
+.m-segment { display: inline-flex; padding: 3px; gap: 2px; border-radius: var(--r-2); background: var(--c-ink-900); border: 1px solid var(--c-ink-700); }
+.m-segment button { min-height: 32px; padding: 0 var(--s-4); border: 0; border-radius: calc(var(--r-2) - 2px); background: transparent; color: var(--c-on-dark-muted); font: 600 var(--fs-sm) / 1 var(--font-ui); cursor: pointer; }
+.m-segment button[aria-pressed='true'] { background: var(--c-on-dark); color: var(--c-ink-900); }
+
+/* ---- パネル ---- */
+.m-panel { background: var(--c-paper); color: var(--c-text); border-radius: var(--r-2); box-shadow: var(--shadow-panel); padding: var(--s-5); }
+.m-panel--dark { background: var(--c-ink-800); color: var(--c-on-dark); border: 1px solid var(--c-ink-700); }
+.m-panel h2 { margin: var(--s-2) 0; font: 400 var(--fs-2xl) / var(--lh-tight) var(--font-display); }
+.m-panel p { margin: 0 0 var(--s-3); font-size: var(--fs-sm); line-height: var(--lh-body); }
+.m-panel .m-eyebrow { color: var(--c-accent-text); }
+.m-panel--dark .m-eyebrow { color: var(--c-accent); }
+.m-panel .m-muted { color: var(--c-text-muted); }
+.m-panel--dark .m-muted { color: var(--c-on-dark-muted); }
+
+/* ---- 上部バー（3D ビューの上に重ねる）---- */
+.m-topbar {
+  position: absolute; inset: 0 0 auto 0; z-index: var(--z-toolbar); height: var(--topbar-h);
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-4); padding: 0 var(--s-4);
+  background: color-mix(in srgb, var(--c-ink-900) 88%, transparent); color: var(--c-on-dark);
+  border-bottom: 1px solid var(--c-ink-700); backdrop-filter: blur(6px);
+}
+.m-topbar .m-brand { font-size: 18px; }
+.m-topbar__group { display: flex; align-items: center; gap: var(--s-2); }
+
+/* ---- ツールパレット（編集モード・左）---- */
+.m-palette {
+  position: absolute; z-index: var(--z-toolbar); top: calc(var(--topbar-h) + var(--s-4)); left: var(--s-4);
+  display: flex; flex-direction: column; gap: var(--s-1); width: var(--palette-w); padding: var(--s-2);
+  background: var(--c-ink-800); border: 1px solid var(--c-ink-700); border-radius: var(--r-3); color: var(--c-on-dark);
+}
+.m-palette button {
+  display: grid; place-items: center; gap: 2px; height: 52px; border: 0; border-radius: var(--r-2);
+  background: transparent; color: var(--c-on-dark-muted); font: 600 10px / 1 var(--font-ui); cursor: pointer;
+}
+.m-palette button svg { width: 20px; height: 20px; }
+.m-palette button:hover { background: var(--c-ink-600); color: var(--c-on-dark); }
+.m-palette button[aria-pressed='true'] { background: var(--c-accent); color: var(--c-ink-900); }
+
+/* ---- バッジ・トースト・ヒント ---- */
+.m-badge { display: inline-flex; align-items: center; gap: var(--s-1); padding: 3px var(--s-2); border-radius: 999px; font: 600 var(--fs-xs) / 1.2 var(--font-ui); background: var(--c-ink-900); color: var(--c-accent); }
+.m-toast { position: absolute; z-index: var(--z-dialog); left: 50%; bottom: var(--s-6); transform: translateX(-50%); padding: var(--s-3) var(--s-5); border-radius: var(--r-2); background: var(--c-ink-800); color: var(--c-on-dark); font-size: var(--fs-md); box-shadow: var(--shadow-panel); }
+.m-hint { position: absolute; z-index: var(--z-hud); left: var(--s-5); bottom: var(--s-4); color: var(--c-on-scene-muted); font-size: var(--fs-xs); }
+/* 編集モードでは左のツールパレットと重ならないよう右にずらす */
+.m-hint--with-palette { left: calc(var(--s-4) + var(--palette-w) + var(--s-4)); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}

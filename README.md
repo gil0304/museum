@@ -63,6 +63,7 @@
 | `/spikes/hic-basic.html` | 2D canvas への最小表示（TMS 23） |
 | `/spikes/hic-input.html` | ボタン・スライダー（TMS 24・25） |
 | `/spikes/hic-three.html` | Three.js の3D平面・カメラ移動（TMS 26・27）。`?orbit=1` でカメラ自動移動、`?fallback=1` で非対応時の代替表示（TMS 28）、`?geom=grid` で座標系を取り違えた状態を再現 |
+| `/spikes/style-guide.html` | 色・文字・部品・画面レイアウト4種の見本（TMS 32、[docs/DESIGN.md](docs/DESIGN.md)） |
 
 ### まだ確認していないこと
 - 人間による実機での確認（全項目）。特に「キーを押し続けて歩きながら操作する」「動いている最中のボタンを押す」。
@@ -124,7 +125,8 @@ tools/       TMS（Google Sheets）連携CLI
 | ファイル | 内容 |
 |---|---|
 | [docs/PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md) | 企画・仕様（正本） |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 技術設計 |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 技術設計・フォルダと依存ルール |
+| [docs/DESIGN.md](docs/DESIGN.md) | 画面レイアウト・色・文字・部品 |
 | [docs/SUBMISSION_EXPERIENCE.md](docs/SUBMISSION_EXPERIENCE.md) | 提出版の体験フロー |
 | [docs/SUBMISSION_SCOPE.md](docs/SUBMISSION_SCOPE.md) | 提出版の実装範囲と非対象 |
 | [docs/CONTEST_REQUIREMENTS.md](docs/CONTEST_REQUIREMENTS.md) | コンテスト応募要件 |
