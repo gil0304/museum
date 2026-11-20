@@ -4,7 +4,8 @@
 // - 非対応（TMS 28）: 3D内の平面には案内表示を貼り、クリックで同じパネルを通常DOMのダイアログで開く。?fallback=1 で強制
 // 結果は画面の #status と window.__hic、console（[HIC] 接頭辞）に出す。
 import * as THREE from 'three';
-import { createDemoRoom } from '../scene/room';
+import { createRoomScene } from '../scene/room';
+import { sampleMuseum } from '../data/sampleMuseum';
 import { detectHtmlInCanvasMode, supportsHtmlInCanvas3D } from '../exhibits/htmlInCanvasSupport';
 
 type Probe = { id: string; x: number; y: number; hit: string | null };
@@ -74,7 +75,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 const gl = renderer.getContext() as WebGL2RenderingContext;
 
-const { scene, camera, lights } = createDemoRoom();
+const { scene, camera, lights } = createRoomScene(sampleMuseum);
 
 // ---- 一人称カメラ（TMS 27）-------------------------------------------------
 // 背景（canvas 本体）のドラッグで視点回転、WASD / 矢印キーで移動。

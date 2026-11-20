@@ -1,1 +1,3 @@
-各形式の展示実装と、HTML in Canvas技術検証をここに実装。
+作品の種類ごとの表示と、HTML in Canvas の判定・代替表示。types・scene・three を import 可（ui・data は不可）。
+- htmlInCanvasSupport.ts: HTML in Canvas が使えるかの判定（?fallback=1 で代替表示を強制）
+技術検証の記録: docs/HTML_IN_CANVAS.md（検証ページは src/spikes/）

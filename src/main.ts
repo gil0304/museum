@@ -1,23 +1,25 @@
-import * as THREE from 'three';
+// エントリーポイント：データ（data）・3D（scene）・画面（ui）をつなぐだけ。各層の責務は docs/ARCHITECTURE.md。
 import './styles.css';
-import { createDemoRoom } from './scene/room';
+import { sampleMuseum } from './data/sampleMuseum';
+import { createRoomScene } from './scene/room';
+import { createViewer } from './scene/viewer';
+import { attachPreviewControls } from './scene/previewControls';
+import { mountShell } from './ui/shell';
 
 const app = document.querySelector<HTMLDivElement>('#app');
 if (!app) throw new Error('app not found');
-app.innerHTML = `<main class="shell"><header><div class="brand">MUSEUM <small>LAB / 0.1</small></div><div class="header-note">自分の世界を、美術館にする。</div></header><section class="view"><div id="viewport"></div><div class="overlay"><div class="eyebrow">EARLY PROTOTYPE</div><h1>作品を飾る場所を、<br>自分でつくる。</h1><p>これは初期展示室のプレビューです。<br>HTML in Canvasと建築エディタは次のタスクで実装します。</p><button id="toggle">展示を見る</button></div><div id="detail" class="detail" hidden><span>EXHIBIT / 001</span><h2>First Light</h2><p>デモ展示：HTMLは現在通常DOMとして表示しています。</p><label>展示の明るさ <input id="light" type="range" min="0" max="100" value="60" /></label></div><div class="hint">ドラッグ：視点回転 ・ スクロール：ズーム</div></section><footer>THREE.JS SCENE  /  HTML IN CANVAS SPIKE PENDING <span>© MUSEUM LAB</span></footer></main>`;
-const host = document.querySelector<HTMLDivElement>('#viewport')!;
-const {scene, camera, lights} = createDemoRoom();
-const renderer = new THREE.WebGLRenderer({antialias:true, alpha:false});
-renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
-renderer.setSize(host.clientWidth, host.clientHeight);
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-host.appendChild(renderer.domElement);
-const pointer={active:false,x:0,y:0}, angles={yaw:0,pitch:0};
-renderer.domElement.addEventListener('pointerdown',e=>{pointer.active=true;pointer.x=e.clientX;pointer.y=e.clientY;renderer.domElement.setPointerCapture(e.pointerId)});
-renderer.domElement.addEventListener('pointerup',()=>pointer.active=false);
-renderer.domElement.addEventListener('pointermove',e=>{if(!pointer.active)return; angles.yaw+=(e.clientX-pointer.x)*.005;angles.pitch=Math.max(-.45,Math.min(.45,angles.pitch+(e.clientY-pointer.y)*.004));pointer.x=e.clientX;pointer.y=e.clientY;});
-renderer.domElement.addEventListener('wheel',e=>{e.preventDefault();camera.position.z=Math.max(5,Math.min(13,camera.position.z+e.deltaY*.008))},{passive:false});
-function tick(){camera.position.x=Math.sin(angles.yaw)*camera.position.z*.3;camera.position.y=2.4+angles.pitch*3; camera.lookAt(0,1.3,0);renderer.render(scene,camera);requestAnimationFrame(tick)}tick();
-const resize=new ResizeObserver(()=>{const w=host.clientWidth,h=host.clientHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h)});resize.observe(host);
-document.querySelector<HTMLButtonElement>('#toggle')?.addEventListener('click',()=>{document.querySelector('.overlay')?.classList.toggle('minimized');const detail=document.querySelector<HTMLElement>('#detail');if(detail)detail.hidden=!detail.hidden});
-document.querySelector<HTMLInputElement>('#light')?.addEventListener('input',e=>{lights.ambient.intensity=Number((e.target as HTMLInputElement).value)/100*1.5});
+
+const museum = sampleMuseum;
+const { scene, camera, lights } = createRoomScene(museum);
+
+const shell = mountShell(app, {
+  featured: museum.exhibits.find((e) => e.title),
+  initialLight: 60,
+  onLightChange: (v) => {
+    lights.ambient.intensity = (v / 100) * 1.5;
+  },
+});
+
+let updateControls = () => {};
+const viewer = createViewer(shell.viewport, scene, camera, () => updateControls());
+updateControls = attachPreviewControls(viewer.canvas, camera);

@@ -70,16 +70,29 @@
 
 ## 開発
 
-Node.js 20以上を想定。
+Node.js 20.19 以上（Vite 7 の要件）。
 
 ```bash
 npm install
-npm run dev        # 開発サーバー（http://localhost:5173）
-npm run build      # 型チェック + 本番ビルド（dist/）
-npm run preview    # ビルド結果をローカルで確認
+npm run dev          # 開発サーバー（http://localhost:5173、同じLANのスマホからも開ける）
+npm run typecheck    # 型チェックだけ
+npm run build        # 型チェック + 本番ビルド（dist/）
+npm run preview      # dist/ をローカルで配信して確認（http://localhost:4173）
+npm run verify:dist  # dist/ を公開前に点検（tools/check-dist.mjs）
+npm run check:layers # フォルダ間の依存ルールを点検（tools/check-layers.mjs）
+npm run release      # check:layers + build + verify:dist（公開前はこれ）
 ```
 
-技術: TypeScript / Vite / Three.js。サーバーを持たない静的サイトとして動く。
+技術: TypeScript / Vite / Three.js。サーバーを持たない**静的サイト**として動く。
+「3Dの描画（scene）」「画面（ui）」「作品データ（data）」を分け、`main.ts` でつなぐ。フォルダの責務と依存ルールは [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
+
+### 静的配信の構成
+- 公開するのは **`dist/` だけ**（ビルド結果。HTML・JS・CSS・素材がすべて入り、`dist/` 単体で動く）。リポジトリ直下には `src/`・`docs/`・`tools/` があるので、**直下をそのまま公開しない**。
+- `vite.config.ts` の `base: './'` で、HTML から JS・CSS・素材への参照はすべて**相対パス**。ルート以外の場所（例: `/museum/`）に置いても動く（TMS 30 で、Vite を使わない静的サーバーで確認済み）。
+- 素材（画像・音声・動画・GLB・サンプルJSON）は **`public/`** に置く。ビルドで `dist/` 直下にそのままコピーされる。HTML からは `/favicon.svg` のように書けば、ビルド時に相対パスへ書き換わる。
+- ページは `index.html`（アプリ本体）と `spikes/*.html`（技術検証）の複数ページ構成。入口を増やすときは `vite.config.ts` の `build.rollupOptions.input` に追加する。
+- 公開先の書き換え（rewrite）機能を前提にしない。画面やサンプルの切り替えは URL の**クエリ**（例: `?fallback=1`）か**ハッシュ**で行う。
+- `npm run verify:dist` が見ること: `index.html` があるか／ビルドされていない `/src/` を参照していないか／ルート基準の絶対パスがないか／合計 100MB 未満（30MB 超で警告）か／秘密情報らしき文字列がないか／「.」で始まる（公開されない）ファイルがないか。
 
 ```
 src/
@@ -88,14 +101,24 @@ src/
   exhibits/  画像/文章/動画/音楽/GLB/HTML作品
   ui/        操作UI・パネル
   types/     データスキーマ
-  data/      サンプル美術館
+  data/      サンプル美術館（純粋なデータ）
+  spikes/    技術検証ページのコード
+public/      素材（ビルドで dist/ 直下にコピー）
+spikes/      技術検証ページ（HTML in Canvas）
 docs/        仕様・設計・応募要件（正本）
 tools/       TMS（Google Sheets）連携CLI
 ```
 
 ## デプロイ（ロリポップ！デプロイナウ）
-`npm run build` で生成した `dist/` を静的サイトとして公開する。Freeプランのデプロイ上限は100MB。
-具体的な公開手順は初回公開時（TMS 61行）に確認してここへ記載する。
+`npm run release` で作った `dist/` を、フレームワーク「静的サイト（static）」として公開する。Freeプランのデプロイ上限は100MB。
+
+公式ドキュメントで確認した注意点（2026-11-20、TMS 30）:
+- 静的サイトは「アップロードしたフォルダのファイル構成が、そのまま公開」される。ビルドは自分で行い、`dist/` の中身を公開する。
+- フォルダ直下の `index.html` がルートURLになる。直下にHTMLが1つもないとデプロイは失敗する。
+- 「.」で始まるファイルは公開されない。
+- **CLI を git 管理下のフォルダで実行すると、`.gitignore` で無視されたファイルは除外される。** `dist/` は `.gitignore` 対象なので、リポジトリの中から `dist/` をそのまま CLI でデプロイすると中身が入らない可能性がある。ブラウザへの `dist/` フォルダのドラッグ&ドロップ、または git 管理外にコピーしてから CLI、のどちらかで行う。
+
+具体的な公開手順は初回公開時（TMS 61行）に実際に確かめてここへ記載する。
 
 ## ドキュメント
 | ファイル | 内容 |
