@@ -54,6 +54,16 @@ function buildExhibit(ex: ExhibitPlacement) {
   return group;
 }
 
+/** 美術館を切り替えるとき、古いシーンの GPU 資源（形状・材質）を解放する */
+export function disposeRoomScene(room: RoomScene) {
+  room.scene.traverse((obj) => {
+    if (obj instanceof THREE.Mesh) {
+      obj.geometry.dispose();
+      (Array.isArray(obj.material) ? obj.material : [obj.material]).forEach((m) => m.dispose());
+    }
+  });
+}
+
 export function createRoomScene(doc: MuseumDocument): RoomScene {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color('#d6d5d1');

@@ -1,6 +1,8 @@
 /* MUSEUM 共通部品（TMS 32）。クラス名は m- で始める。見本は spikes/style-guide.html、方針は docs/DESIGN.md */
 
 /* ---- 共通 ---- */
+/* hidden 属性は部品の display 指定（.m-btn の inline-flex など）より常に優先する（TMS 33 で発生） */
+[hidden] { display: none !important; }
 :focus-visible { outline: 3px solid var(--c-focus); outline-offset: 2px; }
 .m-on-dark :focus-visible, .m-topbar :focus-visible, .m-palette :focus-visible { outline-color: var(--c-focus-on-dark); }
 .m-visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

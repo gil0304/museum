@@ -5,33 +5,47 @@
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--c-ink-900); color: var(--c-on-dark); font-family: var(--font-ui); }
 
-/* ---- 現在のプロトタイプ画面（TMS 33 でタイトル画面に置き換える）---- */
-.shell { min-height: 100vh; display: flex; flex-direction: column; }
-header, footer { display: flex; align-items: center; justify-content: space-between; padding: 22px clamp(20px, 4vw, 66px); gap: var(--s-4); }
-.brand { font-family: var(--font-display); font-size: 23px; letter-spacing: var(--ls-brand); }
-.brand small { font: 10px var(--font-ui); letter-spacing: 0.22em; color: var(--c-on-dark-muted); margin-left: var(--s-3); }
-.header-note, footer { font-size: var(--fs-xs); color: var(--c-on-dark-muted); letter-spacing: 0.12em; }
-.view { position: relative; flex: 1; margin: 0 clamp(12px, 2vw, 30px); min-height: min(70vh, 700px); overflow: hidden; background: var(--c-scene-bg); }
-#viewport { position: absolute; inset: 0; }
-.overlay { position: absolute; top: 11%; left: 7%; pointer-events: auto; max-width: 380px; color: var(--c-on-scene); text-shadow: 0 1px 8px #f9f9f988; transition: opacity 0.3s; }
-.overlay.minimized { opacity: 0; pointer-events: none; }
-.eyebrow, .detail span { font: 10px var(--font-mono); letter-spacing: var(--ls-eyebrow); }
-.overlay h1 { font-family: var(--font-display); font-weight: 400; font-size: var(--fs-hero); line-height: var(--lh-tight); }
-.overlay p { font-size: var(--fs-md); line-height: 2; }
-.overlay button { border: 1px solid var(--c-action); background: var(--c-action); color: white; padding: 13px 22px; cursor: pointer; margin-top: var(--s-3); }
-.detail { position: absolute; bottom: 54px; right: 25px; max-width: 290px; padding: 22px; background: #f7f4efed; color: var(--c-text); box-shadow: var(--shadow-panel); }
-.detail[hidden] { display: none; }
-.detail h2 { font: 27px var(--font-display); font-weight: normal; }
-.detail p, .detail label { font-size: var(--fs-sm); line-height: var(--lh-body); }
-.detail input { display: block; width: 100%; margin-top: 10px; }
-.hint { position: absolute; bottom: 15px; left: 24px; color: var(--c-on-scene-muted); font-size: var(--fs-xs); }
-footer span { font-family: var(--font-display); }
+/* ---- アプリ全体：3D を画面全体に出し、その上に UI を重ねる（docs/DESIGN.md）---- */
+.app { position: fixed; inset: 0; overflow: hidden; background: var(--c-scene-bg); }
+.app__viewport { position: absolute; inset: 0; z-index: var(--z-viewport); }
+.app__viewport canvas { display: block; touch-action: none; }
+
+/* ---- ① タイトル画面（TMS 33）---- */
+.title-screen {
+  position: absolute; inset: 0; z-index: var(--z-panel);
+  display: flex; align-items: center; padding: var(--s-6) clamp(24px, 8vw, 120px);
+  color: var(--c-on-scene);
+  /* 背景の3D展示室を見せつつ、左側の文字を読みやすくする */
+  background: linear-gradient(90deg, rgba(214, 213, 209, 0.94) 0%, rgba(214, 213, 209, 0.84) 36%, rgba(214, 213, 209, 0) 70%);
+  animation: title-in 0.6s ease-out both;
+}
+.title-screen[hidden] { display: none; }
+.title-screen__inner { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-4); max-width: 520px; }
+.title-screen .m-eyebrow { color: var(--c-on-scene-muted); }
+.title-screen .m-hero { text-shadow: 0 1px 12px rgba(249, 249, 249, 0.5); }
+.title-screen__lead { margin: 0; max-width: 30em; font-size: var(--fs-md); line-height: 2; }
+.title-screen__actions { display: flex; flex-wrap: wrap; gap: var(--s-3); margin-top: var(--s-2); }
+.title-screen .m-btn--secondary { background: rgba(247, 244, 239, 0.7); }
+.title-screen .m-btn--secondary:hover { background: var(--c-paper); }
+.title-screen__continue { color: var(--c-on-scene); text-decoration: underline; text-underline-offset: 4px; }
+.title-screen__note { margin: var(--s-2) 0 0; font-size: var(--fs-xs); color: var(--c-on-scene-muted); }
+@keyframes title-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* ---- ② 鑑賞中の上部バーとヒント ---- */
+.hud[hidden] { display: none; }
+.hud__home { background: none; border: 0; padding: var(--s-1) var(--s-2); color: inherit; font-size: 18px; cursor: pointer; border-radius: var(--r-1); }
+.hud__home:hover { color: var(--c-accent); }
+.hud__title { font-size: var(--fs-sm); color: var(--c-on-dark-muted); }
+.hud .m-segment button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ---- スマホ（幅 700px 以下）---- */
 @media (max-width: 700px) {
-  header, footer { padding: 14px; }
-  .header-note { display: none; }
-  .view { min-height: 75vh; }
-  .overlay { left: 8%; top: 9%; right: 8%; }
-  .overlay p { font-size: var(--fs-xs); }
-  .detail { left: 15px; right: 15px; max-width: none; }
-  .hint { font-size: 9px; }
+  .title-screen {
+    align-items: flex-end; padding: var(--s-5) var(--s-5) var(--s-7);
+    background: linear-gradient(0deg, rgba(214, 213, 209, 0.96) 0%, rgba(214, 213, 209, 0.9) 55%, rgba(214, 213, 209, 0) 85%);
+  }
+  .title-screen__actions { width: 100%; }
+  .title-screen__actions .m-btn { flex: 1 1 100%; }
+  .hud .m-segment { display: none; }
+  .m-topbar { height: 48px; }
 }
