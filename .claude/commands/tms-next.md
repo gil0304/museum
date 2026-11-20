@@ -1,0 +1,1 @@
+TMSの次のタスクを確認してください。`python tools/tms.py pull`、`python tools/tms.py next --limit 10` の結果をもとに、今着手できる1件を選び、その行番号・依存関係・完了条件を報告してください。

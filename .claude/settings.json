@@ -1,0 +1,1 @@
+{"permissions":{"allow":["Bash(npm run build)","Bash(npm run typecheck)","Bash(python tools/tms.py status)","Bash(python tools/tms.py pull)","Bash(python tools/tms.py next:*)"],"deny":["Read(.secrets/**)","Read(.env)","Read(.env.*)" ]}}
