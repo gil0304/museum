@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HIC Spike 01 | 最小表示</title>
+    <style>
+      :root { color-scheme: dark; }
+      body { margin: 0; padding: 24px; background: #101214; color: #e8e4dc; font-family: system-ui, sans-serif; }
+      h1 { font-size: 18px; font-weight: 600; margin: 0 0 4px; }
+      .lead { margin: 0 0 16px; color: #9a958c; font-size: 13px; }
+      #stage { width: 640px; height: 360px; display: block; border: 1px solid #2a2d31; }
+      /* canvas の子要素（drawable）。content="drawable" の canvas 内ではレイアウトされるが直接は表示されない */
+      #panel { width: 320px; padding: 20px 24px; box-sizing: border-box; background: #f4efe6; color: #1b1a17; font-family: "Hiragino Mincho ProN", serif; }
+      #panel .eyebrow { font: 600 11px/1 system-ui, sans-serif; letter-spacing: .14em; color: #8a6a3a; }
+      #panel h2 { margin: 8px 0 6px; font-size: 26px; }
+      #panel p { margin: 0 0 12px; font-size: 14px; line-height: 1.6; }
+      #panel .swatch { height: 18px; background: rgb(200, 40, 40); }
+      #status { margin-top: 16px; font: 12px/1.6 ui-monospace, monospace; white-space: pre-wrap; background: #181b1e; padding: 12px; border: 1px solid #2a2d31; max-width: 616px; }
+      .ok { color: #7bd88f; } .ng { color: #ff7b72; }
+    </style>
+  </head>
+  <body>
+    <h1>HTML in Canvas スパイク 01：最小表示（TMS 23）</h1>
+    <p class="lead">下の枠は canvas。背景・枠線・ラベルは canvas の描画命令、ベージュのパネルは <code>drawElementImage</code> で描いた実DOM。</p>
+
+    <canvas id="stage" content="drawable">
+      <div id="panel" drawable>
+        <div class="eyebrow">EXHIBIT / 001</div>
+        <h2>はじまりの光</h2>
+        <p>このパネルは通常のHTMLです。canvas の中に描かれていれば、HTML in Canvas が動いています。</p>
+        <div class="swatch"></div>
+      </div>
+    </canvas>
+
+    <div id="status">checking…</div>
+
+    <script type="module" src="/src/spikes/hic-basic.ts"></script>
+  </body>
+</html>

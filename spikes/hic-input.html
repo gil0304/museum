@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HIC Spike 02 | 入力操作</title>
+    <style>
+      :root { color-scheme: dark; }
+      body { margin: 0; padding: 24px; background: #101214; color: #e8e4dc; font-family: system-ui, sans-serif; }
+      h1 { font-size: 18px; font-weight: 600; margin: 0 0 4px; }
+      .lead { margin: 0 0 16px; color: #9a958c; font-size: 13px; }
+      #stage { width: 640px; height: 440px; display: block; border: 1px solid #2a2d31; }
+      #panel { width: 320px; padding: 20px 24px; box-sizing: border-box; background: #f4efe6; color: #1b1a17; font-family: "Hiragino Mincho ProN", serif; }
+      #panel .eyebrow { font: 600 11px/1 system-ui, sans-serif; letter-spacing: .14em; color: #8a6a3a; }
+      #panel h2 { margin: 8px 0 6px; font-size: 24px; }
+      #panel .count { font: 700 40px/1.1 system-ui, sans-serif; margin: 4px 0 12px; }
+      #panel .row { display: flex; gap: 8px; }
+      #panel button { font: 600 14px system-ui, sans-serif; padding: 10px 16px; border: 0; border-radius: 6px; cursor: pointer; }
+      #applause { background: #b8322c; color: #fff; flex: 1; }
+      #applause:hover { background: #d4453e; }
+      #applause:active { background: #7d1f1b; }
+      #reset { background: #d9d1c3; color: #1b1a17; }
+      #reset:hover { background: #c7bca9; }
+      button:focus-visible { outline: 3px solid #2d6cdf; outline-offset: 2px; }
+      #panel .slider { margin-top: 16px; padding-top: 14px; border-top: 1px solid #ddd3c2; font: 600 13px system-ui, sans-serif; }
+      #panel .slider label { display: flex; justify-content: space-between; margin-bottom: 6px; }
+      #light { width: 100%; margin: 0; accent-color: #b8322c; }
+      #light:focus-visible { outline: 3px solid #2d6cdf; outline-offset: 2px; }
+      #lamp { height: 28px; margin-top: 8px; border-radius: 4px; background: rgb(128, 128, 128); }
+      #status { margin-top: 16px; font: 12px/1.6 ui-monospace, monospace; white-space: pre-wrap; background: #181b1e; padding: 12px; border: 1px solid #2a2d31; max-width: 616px; }
+      .ok { color: #7bd88f; } .ng { color: #ff7b72; }
+    </style>
+  </head>
+  <body>
+    <h1>HTML in Canvas スパイク 02：入力操作（TMS 24 ボタン / 25 スライダー）</h1>
+    <p class="lead">canvas に描かれたボタンを実際にクリックする。数字はパネル内のDOMで、変化が canvas に再描画されれば往復が成立。</p>
+
+    <canvas id="stage" content="drawable">
+      <div id="panel" drawable>
+        <div class="eyebrow">INTERACTIVE / 002</div>
+        <h2>拍手のカウンター</h2>
+        <div class="count" id="count">0</div>
+        <div class="row">
+          <button id="applause" type="button">拍手する</button>
+          <button id="reset" type="button">リセット</button>
+        </div>
+        <div class="slider">
+          <label for="light"><span>展示照明の明るさ</span><span id="lightValue">50</span></label>
+          <input id="light" type="range" min="0" max="100" value="50" />
+          <div id="lamp"></div>
+        </div>
+      </div>
+    </canvas>
+
+    <div id="status">checking…</div>
+
+    <script type="module" src="/src/spikes/hic-input.ts"></script>
+  </body>
+</html>
