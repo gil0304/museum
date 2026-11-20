@@ -4,9 +4,15 @@
 
 export type Vec3 = [number, number, number];
 
+/** 展示室の寸法の初期値（docs/SUBMISSION_EXPERIENCE.md）。1マス = 1m、最大 12×12マス、壁の高さ 3m */
+export const ROOM_GRID = { cell: 1, maxCells: 12, wallHeight: 3 } as const;
+
 export type ExhibitType = 'image' | 'text' | 'video' | 'audio' | 'glb' | 'interactive-html';
 
-/** 建築パーツ（床・壁・展示台）。position は箱の中心、size は幅・高さ・奥行き */
+/**
+ * 建築パーツ（床・壁・展示台）。position は箱の中心、size は幅・高さ・奥行き。
+ * 天井はパーツに含めない（編集の対象外。床と壁の範囲から描画側が自動で張る。TMS 34）。
+ */
 export interface RoomPart {
   id: string;
   type: 'floor' | 'wall' | 'pedestal';

@@ -4,6 +4,9 @@ import type * as THREE from 'three';
 
 const TARGET = { x: 0, y: 1.3, z: 0 };
 const HOME_Z = 8;
+// カメラの高さ。天井（3m）より上に出ると天井の板（下向きの片面）が消えて部屋が覗けてしまうため、天井の下に収める
+const HOME_Y = 2.2;
+const MAX_Y = 2.8;
 
 export interface PreviewControls {
   /** 毎フレーム呼ぶ（有効なときだけカメラを動かす） */
@@ -53,7 +56,7 @@ export function attachPreviewControls(
     update() {
       if (!enabled) return;
       const camera = getCamera();
-      camera.position.set(Math.sin(angles.yaw) * distance * 0.3, 2.4 + angles.pitch * 3, distance);
+      camera.position.set(Math.sin(angles.yaw) * distance * 0.3, Math.min(MAX_Y, HOME_Y + angles.pitch * 2), distance);
       camera.lookAt(TARGET.x, TARGET.y, TARGET.z);
     },
     setEnabled(value) {

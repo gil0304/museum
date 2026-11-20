@@ -10,16 +10,16 @@ export const sampleMuseum: MuseumDocument = {
   title: 'サンプル美術館',
   objects: [
     { id: 'floor', type: 'floor', position: [0, -0.1, 0], size: [9, 0.2, 7], color: '#b9b2a8' },
-    { id: 'wall-back', type: 'wall', position: [0, 2, -3.5], size: [9, 4, 0.2], color: WALL },
-    { id: 'wall-left', type: 'wall', position: [-4.5, 2, 0], size: [0.2, 4, 7], color: '#f4f0e9' },
-    { id: 'wall-right', type: 'wall', position: [4.5, 2, 0], size: [0.2, 4, 7], color: WALL },
+    { id: 'wall-back', type: 'wall', position: [0, 1.5, -3.5], size: [9, 3, 0.2], color: WALL },
+    { id: 'wall-left', type: 'wall', position: [-4.5, 1.5, 0], size: [0.2, 3, 7], color: '#f4f0e9' },
+    { id: 'wall-right', type: 'wall', position: [4.5, 1.5, 0], size: [0.2, 3, 7], color: WALL },
     { id: 'pedestal-1', type: 'pedestal', position: [2.65, 0.42, 0.7], size: [1.15, 0.85, 1.15], color: WALL },
   ],
   exhibits: [
     {
       id: 'exhibit-001',
       type: 'image',
-      position: [-2, 2, -3.24],
+      position: [-2, 1.6, -3.24],
       size: [2.05, 1.54],
       frameSize: [2.3, 1.8],
       title: 'First Light',
@@ -29,7 +29,7 @@ export const sampleMuseum: MuseumDocument = {
     {
       id: 'exhibit-002',
       type: 'image',
-      position: [1.35, 2.1, -3.23],
+      position: [1.35, 1.7, -3.23],
       size: [1.54, 1.24],
       frameSize: [1.8, 1.5],
       placeholderColor: '#d3a575',
