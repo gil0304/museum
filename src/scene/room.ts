@@ -2,9 +2,21 @@
 import * as THREE from 'three';
 import { ROOM_GRID, type ExhibitPlacement, type MuseumDocument, type RoomPart } from '../types/museum';
 
+/** 一人称の視点（目の位置と向き）。yaw は Y 軸まわり（0 で -Z を向く）、pitch は上下（正で上） */
+export interface ViewPose {
+  position: THREE.Vector3Tuple;
+  yaw: number;
+  pitch: number;
+}
+
+/** 目の高さ（m） */
+export const EYE_HEIGHT = 1.6;
+
 export interface RoomScene {
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
+  /** 鑑賞を始める位置：部屋の手前の壁際から奥を向く（TMS 36） */
+  spawn: ViewPose;
   /** 固定の基本照明（TMS 35）。ユーザーが照明を置く機能は作らない（docs/SUBMISSION_SCOPE.md） */
   lights: { ambient: THREE.HemisphereLight; key: THREE.DirectionalLight; fill: THREE.DirectionalLight };
 }
@@ -166,6 +178,13 @@ function aimKeyLight(key: THREE.DirectionalLight, b: RoomBounds | null, mapSize:
   key.shadow.radius = 3; // PCFSoftShadowMap では無視されるが、PCF に切り替えたときのぼかし
 }
 
+/** 手前の壁から 1.2m 内側、左右の中央に立って奥を向く */
+function spawnPose(b: RoomBounds | null): ViewPose {
+  if (!b) return { position: [0, EYE_HEIGHT, 4], yaw: 0, pitch: 0 };
+  const z = Math.max((b.minZ + b.maxZ) / 2, b.maxZ - 1.2 - 0.2);
+  return { position: [(b.minX + b.maxX) / 2, EYE_HEIGHT, z], yaw: 0, pitch: -0.04 };
+}
+
 /** 美術館を切り替えるとき、古いシーンの GPU 資源（形状・材質・影のマップ）を解放する */
 export function disposeRoomScene(room: RoomScene) {
   room.scene.traverse((obj) => {
@@ -197,5 +216,5 @@ export function createRoomScene(doc: MuseumDocument, options: RoomSceneOptions =
   for (const ex of doc.exhibits) scene.add(buildExhibit(ex));
   if (bounds) scene.add(buildCeiling(bounds));
 
-  return { scene, camera, lights: { ambient, key, fill } };
+  return { scene, camera, spawn: spawnPose(bounds), lights: { ambient, key, fill } };
 }

@@ -75,7 +75,9 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 const gl = renderer.getContext() as WebGL2RenderingContext;
 
-const { scene, camera, lights } = createRoomScene(sampleMuseum);
+// 検証時（TMS 26〜28）の部屋に合わせ、手前の壁（TMS 36 で追加）は除く。視点が部屋の手前の外側にあるため
+const spikeRoom = { ...sampleMuseum, objects: sampleMuseum.objects.filter((o) => o.id !== 'wall-front') };
+const { scene, camera, lights } = createRoomScene(spikeRoom);
 
 // ---- 一人称カメラ（TMS 27）-------------------------------------------------
 // 背景（canvas 本体）のドラッグで視点回転、WASD / 矢印キーで移動。

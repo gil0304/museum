@@ -45,7 +45,7 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
       </div>
       <div class="m-topbar__group"><span class="hud__title"></span></div>
     </header>
-    <div class="m-hint">ドラッグ：視点回転 ・ スクロール：ズーム</div>
+    <div class="m-hint">ドラッグ：見回す<span class="hud__keys"> ・ <kbd class="m-kbd">Q</kbd> <kbd class="m-kbd">E</kbd>：向きを変える</span></div>
   </div>
 </div>`;
 

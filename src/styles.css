@@ -47,5 +47,6 @@ body { margin: 0; background: var(--c-ink-900); color: var(--c-on-dark); font-fa
   .title-screen__actions { width: 100%; }
   .title-screen__actions .m-btn { flex: 1 1 100%; }
   .hud .m-segment { display: none; }
+  .hud__keys { display: none; } /* スマホではキー操作の案内を出さない */
   .m-topbar { height: 48px; }
 }

@@ -7,7 +7,7 @@ import { sampleMuseum } from './data/sampleMuseum';
 import { emptyRoom } from './data/emptyRoom';
 import { createRoomScene, disposeRoomScene, type RoomScene } from './scene/room';
 import { createViewer } from './scene/viewer';
-import { attachPreviewControls } from './scene/previewControls';
+import { attachFirstPersonControls } from './scene/firstPersonControls';
 import { updateTitleCamera } from './scene/titleCamera';
 import { mountShell, type StartKind } from './ui/shell';
 
@@ -46,11 +46,11 @@ const shell = mountShell(app, {
   onHome: () => (location.hash = ''),
 });
 
-const viewer = createViewer(shell.viewport, room.scene, room.camera, (_dt, t) => {
+const viewer = createViewer(shell.viewport, room.scene, room.camera, (dt, t) => {
   if (mode === 'title') updateTitleCamera(room.camera, t, reducedMotion.matches);
-  else controls.update();
+  else controls.update(dt);
 });
-const controls = attachPreviewControls(viewer.canvas, () => room.camera);
+const controls = attachFirstPersonControls(viewer.canvas, () => room.camera, { reducedMotion: () => reducedMotion.matches });
 
 function show(doc: MuseumDocument) {
   if (doc === shownDoc) return;
@@ -67,7 +67,7 @@ function route() {
     show(doc);
     const fromTitle = started && mode === 'title';
     mode = 'viewer';
-    controls.reset();
+    controls.reset(room.spawn); // 部屋の手前から奥を向いて立つ
     controls.setEnabled(true);
     shell.showViewer({ title: doc.title, focus: fromTitle });
   } else {
@@ -83,3 +83,6 @@ let started = false; // 最初の表示ではフォーカスを動かさない
 window.addEventListener('hashchange', route);
 route();
 started = true;
+
+// 開発時だけ：自動確認（Claude in Chrome）で視点を読むための入口。本番ビルドには含まれない
+if (import.meta.env.DEV) (window as unknown as { __museum: unknown }).__museum = { controls, get room() { return room; } };

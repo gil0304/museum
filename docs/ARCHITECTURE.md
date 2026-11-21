@@ -14,7 +14,7 @@
 |---|---|---|
 | `src/types/` | データの形（`MuseumDocument`・`RoomPart`・`ExhibitPlacement`） | なし |
 | `src/data/` | サンプル美術館などのデータ（JSONにそのまま書き出せる形） | types |
-| `src/scene/` | Three.js：データからシーンを組み立てる（`room.ts`）、レンダラーと描画ループ（`viewer.ts`）、視点操作（`previewControls.ts`）。DOM は受け取った要素に canvas を入れる以外触らない | types、three |
+| `src/scene/` | Three.js：データからシーンを組み立てる（`room.ts`）、レンダラーと描画ループ（`viewer.ts`）、一人称の視点操作（`firstPersonControls.ts`）。DOM は受け取った要素に canvas を入れる以外触らない | types、three |
 | `src/ui/` | 画面の DOM（外枠・案内・作品情報パネル・今後のツールバーやヘルプ）。three.js は使わず、3D への反映はコールバックで受け取る | types |
 | `src/exhibits/` | 作品の種類ごとの表示、HTML in Canvas の判定と代替表示 | types、scene、three |
 | `src/editor/` | 建築・展示エディタ | types、scene、exhibits、data、three |
