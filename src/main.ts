@@ -35,8 +35,10 @@ function museumFor(kind: StartKind): MuseumDocument {
 
 // ---- 3D と画面 ----
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+// スマホ・タブレット（指で操作する端末）は影の解像度を下げて軽くする（TMS 35）
+const roomOptions = { shadowMapSize: window.matchMedia('(pointer: coarse)').matches ? 1024 : 2048 };
 let mode: 'title' | 'viewer' = 'title';
-let room: RoomScene = createRoomScene(sampleMuseum);
+let room: RoomScene = createRoomScene(sampleMuseum, roomOptions);
 let shownDoc: MuseumDocument = sampleMuseum;
 
 const shell = mountShell(app, {
@@ -53,7 +55,7 @@ const controls = attachPreviewControls(viewer.canvas, () => room.camera);
 function show(doc: MuseumDocument) {
   if (doc === shownDoc) return;
   disposeRoomScene(room);
-  room = createRoomScene(doc);
+  room = createRoomScene(doc, roomOptions);
   shownDoc = doc;
   viewer.setScene(room.scene, room.camera);
 }

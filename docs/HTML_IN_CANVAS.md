@@ -67,6 +67,10 @@ const supportsHtmlInCanvas =
   'updateElementGeometry' in HTMLCanvasElement.prototype;
 ```
 
+## 本体アプリに組み込むときの注意
+- 本体の描画（`src/scene/viewer.ts`）は TMS 35 から **Neutral トーンマッピング**と**影**を使う。HTML作品の板の材質は `toneMapped: false` にし、照明の影響を受けない材質（`MeshBasicMaterial`）にして、HTML の色をそのまま出す（検証ページ `hic-three` はトーンマッピングなしで色の一致 135/135 を確認済み）。
+- 影は部屋が変わったときだけ描き直す（`renderer.shadowMap.autoUpdate = false`）。HTML作品の板を動かしたら `viewer.invalidateShadows()` を呼ぶ。
+
 ## 検証記録（自動チェック）
 - 実行環境: macOS、Google Chrome 157.0.8103.79（`--headless=new`、127.0.0.1 から配信したページ、安全なコンテキスト）
 - 存在を確認したもの: `drawElementImage`、`requestPaint`、`onpaint`、`captureElementImage`、`updateElementGeometry`、`clearElementGeometry`、`getElementTransform`、`getElementImageDefaultSize`、`onelementgeometryupdate`、`texElementSubImage2D`（WebGL1/2）、`GPUQueue.drawElementImageToTexture`、`CanvasPaintEvent`、`ElementImage`

@@ -6,6 +6,8 @@ export interface Viewer {
   canvas: HTMLCanvasElement;
   /** 表示するシーンとカメラを差し替える（美術館の切り替え） */
   setScene(scene: THREE.Scene, camera: THREE.PerspectiveCamera): void;
+  /** 次のフレームで影を描き直す（部屋のパーツ・作品を動かしたとき） */
+  invalidateShadows(): void;
   dispose(): void;
 }
 
@@ -20,6 +22,15 @@ export function createViewer(
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(host.clientWidth, host.clientHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+  // 基本照明（TMS 35）：明るい壁が白飛びしにくく、作品の色味を崩しにくい Neutral トーンマッピング
+  renderer.toneMapping = THREE.NeutralToneMapping;
+  renderer.toneMappingExposure = 1;
+  // 影：主光 1 つだけが落とす。照明も部屋も動かないので、影は毎フレームではなく部屋が変わったときだけ描き直す
+  // （編集でパーツ・作品を動かしたら invalidateShadows() を呼ぶ。低スペック向けの画質切替は TMS 64）
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.autoUpdate = false;
+  renderer.shadowMap.needsUpdate = true;
   host.appendChild(renderer.domElement);
 
   let current = { scene, camera };
@@ -53,7 +64,11 @@ export function createViewer(
     canvas: renderer.domElement,
     setScene(scene, camera) {
       current = { scene, camera };
+      renderer.shadowMap.needsUpdate = true;
       fitCamera();
+    },
+    invalidateShadows() {
+      renderer.shadowMap.needsUpdate = true;
     },
     dispose() {
       running = false;
