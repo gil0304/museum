@@ -388,7 +388,10 @@ function route() {
 
   // 読み込んだ直後（forceFresh）は、作業中の美術館はそのままで視点などを初めから
   const fresh = forceFresh || !work || work.kind !== kind;
-  if (!work || work.kind !== kind) work = { kind, doc: structuredClone(museumFor(kind)) };
+  if (!work || work.kind !== kind) {
+    work = { kind, doc: structuredClone(museumFor(kind)) };
+    viewPoseReady = false;
+  }
   forceFresh = false;
   if (fresh) shell.setSaveStatus(kind === 'continue' ? 'ブラウザに保存済み' : ''); // サンプル・空の部屋は編集したら保存する
   const doc = work!.doc;
@@ -405,7 +408,9 @@ function route() {
     editCamera.setEnabled(false);
     overlay.setVisible(false);
     overlay.updateCutaway(room, room.camera, false);
-    if (fresh || prev === 'title') controls.reset(room.spawn); // 部屋の手前から奥を向いて立つ
+    // 部屋の手前から奥を向いて立つ。編集の URL から入って初めて鑑賞にしたときも（TMS 65 で発見：原点のまま壁に重なっていた）
+    if (fresh || prev === 'title' || !viewPoseReady) controls.reset(room.spawn);
+    viewPoseReady = true;
     controls.setEnabled(true); // 編集から戻ったときは、編集前に立っていた場所から続ける
     setHtmlInteractive(true); // HTML 作品は鑑賞中だけ直接操作できる
   } else {
@@ -428,6 +433,8 @@ function route() {
 let started = false; // 最初の表示ではフォーカスを動かさない
 let redirecting = false;
 let forceFresh = false;
+/** 今の美術館で、鑑賞の立ち位置をもう決めたか（編集から戻ったときは立っていた場所から続けるため） */
+let viewPoseReady = false;
 window.addEventListener('hashchange', route);
 route();
 started = true;
