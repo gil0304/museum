@@ -48,6 +48,15 @@ body { margin: 0; background: var(--c-ink-900); color: var(--c-on-dark); font-fa
 .hud[data-mode='view'] .hud__inspector { display: none; }
 .hud__inspector-actions { display: flex; flex-wrap: wrap; gap: var(--s-2); }
 .hud__inspector .m-btn--secondary { color: var(--c-on-dark); }
+/* 3D 作品を近くで見る（TMS 52）：歩く操作の案内・移動ボタンを隠し、下中央に操作を出す */
+.hud__inspect { position: absolute; z-index: var(--z-toolbar); left: 50%; bottom: var(--s-5); transform: translateX(-50%); display: none; align-items: center; gap: var(--s-2); padding: var(--s-2) var(--s-3); border-radius: var(--r-2); background: color-mix(in srgb, var(--c-ink-900) 85%, transparent); color: var(--c-on-dark); white-space: nowrap; }
+.hud__inspect-text { font-size: var(--fs-sm); color: var(--c-on-dark-muted); margin-right: var(--s-2); }
+.hud__inspect .m-btn--secondary { color: var(--c-on-dark); }
+.hud__inspect .m-btn--primary { background: var(--c-on-dark); color: var(--c-ink-900); border-color: var(--c-on-dark); }
+.hud[data-inspect='true'] .hud__inspect { display: flex; }
+.hud[data-inspect='true'] .hud__hint-view, .hud[data-inspect='true'] .move-pad { display: none !important; }
+.hud[data-inspect='true'] .hud__info { bottom: calc(var(--s-5) + 64px); }
+
 /* 作品ライブラリ（編集・作品の道具。TMS 47） */
 .hud__library { position: absolute; z-index: var(--z-panel); top: calc(var(--topbar-h) + var(--s-4)); right: var(--s-4); width: 300px; max-height: calc(100% - var(--topbar-h) - 80px); overflow: auto; }
 .hud[data-mode='view'] .hud__library { display: none; }
@@ -101,6 +110,8 @@ body { margin: 0; background: var(--c-ink-900); color: var(--c-on-dark); font-fa
   .hud .m-segment { display: none; }
   .hud__keys { display: none; } /* スマホではキー操作の案内を出さない */
   .hud__info { left: 0; right: 0; bottom: 0; width: auto; max-height: 55%; border-radius: var(--r-3) var(--r-3) 0 0; z-index: var(--z-dialog); } /* 画面下からのシート */
+  .hud__inspect-text { display: none; }
+  .hud[data-inspect='true'] .hud__info { display: none; } /* スマホでは作品を大きく見せる */
   .hud__toast { top: calc(48px + var(--s-3)); bottom: auto; width: max-content; max-width: calc(100% - 32px); } /* 移動ボタンと重ならないよう上に出す */
   .m-topbar { height: 48px; }
 }

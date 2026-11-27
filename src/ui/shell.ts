@@ -32,6 +32,10 @@ export interface ShellOptions {
   onMoveSelected(): void;
   /** 作品ライブラリから作品を選んだ（作品の道具。TMS 47） */
   onPickAsset(assetId: string): void;
+  /** 作品情報パネルが閉じられた（閉じる・Esc） */
+  onInfoClosed(): void;
+  /** 3D 作品を近くで見ている間の「寄る（-）/ 離れる（+）」（TMS 52） */
+  onInspectZoom(delta: number): void;
 }
 
 /** 作品ライブラリの一覧に出す 1 点 */
@@ -88,6 +92,8 @@ export interface Shell {
   showExhibitInfo(info: ExhibitInfo | null): void;
   /** 作品ライブラリの一覧（作品の道具を選んでいる間、右上に出す） */
   setLibrary(items: readonly LibraryItem[]): void;
+  /** 3D 作品を近くで見ている間の操作の案内（TMS 52） */
+  setInspecting(inspecting: boolean): void;
 }
 
 const TOOLS: { tool: EditTool; label: string; key: string; icon: string }[] = [
@@ -138,6 +144,12 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
       <span class="hud__edit-tool"></span>
       <span class="hud__edit-keys">ドラッグ：回す ・ ホイール：寄る ・ <kbd class="m-kbd">W</kbd><kbd class="m-kbd">A</kbd><kbd class="m-kbd">S</kbd><kbd class="m-kbd">D</kbd>：ずらす ・ <kbd class="m-kbd">Q</kbd><kbd class="m-kbd">E</kbd>：回す</span>
     </div>
+    <div class="hud__inspect" role="group" aria-label="3D作品を近くで見る">
+      <span class="hud__inspect-text">ドラッグ：回して見る ・ ホイール：寄る</span>
+      <button type="button" class="m-btn m-btn--secondary m-btn--sm m-btn--icon" data-zoom="-0.25" aria-label="寄る">＋</button>
+      <button type="button" class="m-btn m-btn--secondary m-btn--sm m-btn--icon" data-zoom="0.25" aria-label="離れる">−</button>
+      <button type="button" class="m-btn m-btn--primary m-btn--sm hud__inspect-end">歩いて見るに戻る（Esc）</button>
+    </div>
     <div class="move-pad" role="group" aria-label="移動（押している間歩く）">
       ${padButton('forward', '前へ', 'M6 15l6-6 6 6')}
       ${padButton('left', '左へ', 'M15 6l-6 6 6 6')}
@@ -183,10 +195,21 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
   const toastEl = q<HTMLElement>('.hud__toast');
   const inspector = q<HTMLElement>('.hud__inspector');
   const info = q<HTMLElement>('.hud__info');
-  q<HTMLButtonElement>('.hud__info-close').addEventListener('click', () => (info.hidden = true));
-  // 鑑賞中の Esc は作品情報パネルを閉じる
+  const closeInfo = () => {
+    info.hidden = true;
+    opts.onInfoClosed();
+  };
+  q<HTMLButtonElement>('.hud__info-close').addEventListener('click', closeInfo);
+  // 鑑賞中の Esc は作品情報パネルを閉じる（3D 作品を近くで見ているときは歩いて見るに戻る）
   window.addEventListener('keydown', (e) => {
-    if (e.code === 'Escape' && !info.hidden) info.hidden = true;
+    if (e.code === 'Escape' && (!info.hidden || hud.dataset.inspect === 'true')) closeInfo();
+  });
+  const inspectBar = q<HTMLElement>('.hud__inspect');
+  inspectBar.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('button');
+    if (!btn) return;
+    if (btn.dataset.zoom) opts.onInspectZoom(Number(btn.dataset.zoom));
+    else closeInfo();
   });
   q<HTMLButtonElement>('.hud__delete').addEventListener('click', () => opts.onDeleteSelected());
   q<HTMLButtonElement>('.hud__move').addEventListener('click', () => opts.onMoveSelected());
@@ -281,6 +304,9 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
       q<HTMLElement>('.hud__inspector-label').textContent = info.label;
       q<HTMLElement>('.hud__inspector-where').textContent = info.where;
       q<HTMLButtonElement>('.hud__move').hidden = !info.movable;
+    },
+    setInspecting(inspecting) {
+      hud.dataset.inspect = String(inspecting);
     },
     setLibrary(items) {
       const list = q<HTMLElement>('.hud__library-list');

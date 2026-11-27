@@ -9,6 +9,8 @@ import { createRoomScene, disposeRoomScene, roomBounds, type RoomScene } from '.
 import { createViewer } from './scene/viewer';
 import { attachFirstPersonControls } from './scene/firstPersonControls';
 import { attachEditCamera } from './scene/editCamera';
+import { attachInspectCamera } from './scene/inspectCamera';
+import * as THREE from 'three';
 import { createEditOverlay, GRID_HALF } from './scene/editOverlay';
 import { createCollider } from './scene/collision';
 import { updateTitleCamera } from './scene/titleCamera';
@@ -80,12 +82,17 @@ const shell = mountShell(app, {
   onClearSelection: () => editor.clearSelection(),
   onMoveSelected: () => editor.moveSelected(),
   onPickAsset: (id) => editor.placeAsset(id),
+  onInfoClosed: () => endInspect(),
+  onInspectZoom: (delta) => inspect.zoom(delta),
 });
 
 const viewer = createViewer(shell.viewport, room.scene, room.camera, (dt, t) => {
   exhibits.update(dt, room.camera);
   if (screen === 'title') updateTitleCamera(room.camera, t, reducedMotion.matches);
-  else if (screen === 'view') controls.update(dt);
+  else if (screen === 'view') {
+    if (inspect.active) inspect.update(dt);
+    else controls.update(dt);
+  }
   else {
     editCamera.update(dt);
     overlay.updateCutaway(room, room.camera, true);
@@ -97,6 +104,25 @@ const controls = attachFirstPersonControls(viewer.canvas, () => room.camera, {
   constrain: (from, to) => collider.constrain(from, to),
   onTap: (x, y) => openExhibit(x, y),
 });
+const inspect = attachInspectCamera(viewer.canvas, () => room.camera, { reducedMotion: () => reducedMotion.matches });
+
+// ---- 3D 作品を近くで回して見る（TMS 52）----
+function startInspect(view: ExhibitView) {
+  const model = view.group.getObjectByName('model') ?? view.group;
+  const box = new THREE.Box3().setFromObject(model);
+  const center = box.getCenter(new THREE.Vector3());
+  const radius = box.getSize(new THREE.Vector3()).length() / 2;
+  const cam = room.camera.position;
+  controls.setEnabled(false);
+  inspect.start(center.toArray(), radius, Math.atan2(cam.x - center.x, cam.z - center.z));
+  shell.setInspecting(true);
+}
+function endInspect() {
+  if (!inspect.active) return;
+  inspect.stop();
+  shell.setInspecting(false);
+  if (screen === 'view') controls.setEnabled(true); // 立っていた場所・向きに戻る
+}
 
 // ---- 作品をクリックすると作品情報パネル（TMS 46）----
 const TYPE_LABEL: Record<string, string> = {
@@ -124,6 +150,7 @@ function openExhibit(x: number, y: number) {
   if (!view) return;
   view.activate?.(); // 動画の再生・一時停止、音の再生・停止など
   shell.showExhibitInfo(exhibitInfo(view));
+  if (view.asset.type === 'glb') startInspect(view);
 }
 const editCamera = attachEditCamera(viewer.canvas, () => room.camera, {
   panLimit: GRID_HALF,
@@ -191,6 +218,8 @@ function route() {
     overlay.setVisible(false);
     overlay.updateCutaway(room, room.camera, false);
     editor.clearSelection();
+    endInspect();
+    shell.showExhibitInfo(null);
     shell.showTitle({ canContinue: loadAutosave() !== null, focus: fromViewer });
     return;
   }
@@ -215,6 +244,7 @@ function route() {
   const prev = screen;
   screen = mode;
   shell.showExhibitInfo(null);
+  endInspect();
   if (mode === 'view') {
     editor.clearSelection();
     editCamera.setEnabled(false);
