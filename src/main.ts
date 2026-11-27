@@ -83,7 +83,7 @@ const shell = mountShell(app, {
 });
 
 const viewer = createViewer(shell.viewport, room.scene, room.camera, (dt, t) => {
-  exhibits.update(dt);
+  exhibits.update(dt, room.camera);
   if (screen === 'title') updateTitleCamera(room.camera, t, reducedMotion.matches);
   else if (screen === 'view') controls.update(dt);
   else {

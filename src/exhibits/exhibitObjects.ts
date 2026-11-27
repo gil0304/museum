@@ -20,8 +20,8 @@ export interface ExhibitView {
   status: 'ready' | 'loading' | 'error';
   /** 作品全体（クリック判定の対象） */
   group: THREE.Group;
-  /** 毎フレーム（動画・回転など。必要な作品だけ） */
-  update?(dt: number): void;
+  /** 毎フレーム（音量・回転など。必要な作品だけ）。camera は今の視点 */
+  update?(dt: number, camera: THREE.Camera): void;
   /** 鑑賞中にクリックされた（動画の再生・一時停止、音の再生・停止など。TMS 49〜） */
   activate?(): void;
   /** 作品情報パネルに添える今の状態（例「再生中」） */
@@ -31,7 +31,7 @@ export interface ExhibitView {
 
 export interface ExhibitSet {
   views: Map<string, ExhibitView>;
-  update(dt: number): void;
+  update(dt: number, camera: THREE.Camera): void;
   dispose(): void;
 }
 
@@ -126,6 +126,99 @@ function buildVideo(asset: ExhibitAsset, view: ExhibitView, setPiece: (g: THREE.
       video.removeAttribute('src');
       video.load();
       texture?.dispose();
+    },
+  };
+}
+
+// ---- 音作品（TMS 50）----
+/** 音量が最大になる距離・聞こえなくなり始める距離（m） */
+const AUDIO_NEAR = 2;
+const AUDIO_FAR = 12;
+
+/** 音作品の面：同心円（スピーカーの見た目）と題名・操作の案内 */
+function drawAudioFace(canvas: HTMLCanvasElement, asset: ExhibitAsset, playing: boolean, failed: boolean) {
+  const ctx = canvas.getContext('2d')!;
+  const W = canvas.width;
+  const H = canvas.height;
+  ctx.fillStyle = '#2b2622';
+  ctx.fillRect(0, 0, W, H);
+  const cx = W / 2;
+  const cy = H * 0.42;
+  for (let i = 7; i >= 1; i--) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, (W * 0.3 * i) / 7, 0, Math.PI * 2);
+    ctx.strokeStyle = playing ? (i % 2 ? '#c9a86a' : '#8f7444') : i % 2 ? '#6b625a' : '#4a433d';
+    ctx.lineWidth = W * 0.012;
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.arc(cx, cy, W * 0.05, 0, Math.PI * 2);
+  ctx.fillStyle = playing ? '#c9a86a' : '#6b625a';
+  ctx.fill();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#f3f1eb';
+  ctx.font = `400 ${Math.round(W * 0.075)}px ${SERIF}`;
+  ctx.fillText(asset.title, cx, H * 0.8);
+  ctx.fillStyle = playing ? '#c9a86a' : '#a4a49e';
+  ctx.font = `600 ${Math.round(W * 0.045)}px ${SANS}`;
+  ctx.fillText(failed ? '音を読み込めませんでした' : playing ? '■ 再生中 ・ クリックで停止' : '▶ クリックで再生', cx, H * 0.9);
+}
+
+/**
+ * 音作品：クリックで再生・停止（ブラウザの自動再生の制限に合わせ、必ず利用者の操作で鳴らす）。ループ再生。
+ * 近づくほど大きく聞こえる（AUDIO_NEAR〜AUDIO_FAR で音量を下げる）。部屋を離れる（作り直す）と止まる。
+ */
+function buildAudio(asset: ExhibitAsset, view: ExhibitView, setPiece: (g: THREE.Group) => void): Partial<ExhibitView> {
+  const audio = new Audio();
+  audio.src = asset.src ?? '';
+  audio.loop = true;
+  audio.preload = 'none'; // 押すまで読み込まない（軽さ）
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 640;
+  let failed = false;
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const redraw = () => {
+    drawAudioFace(canvas, asset, !audio.paused, failed);
+    tex.needsUpdate = true;
+  };
+  redraw();
+  const side = standard('#2b2622');
+  const front = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 });
+  setPiece(buildWallPiece(asset, [side, side, side, side, front, side]));
+  audio.addEventListener('play', redraw);
+  audio.addEventListener('pause', redraw);
+  audio.addEventListener('error', () => {
+    if (!audio.getAttribute('src')) return; // 片付けで src を外したとき
+    failed = true;
+    view.status = 'error';
+    redraw();
+    console.warn(`作品の音を読み込めませんでした: ${asset.src}`);
+  });
+  const here = new THREE.Vector3();
+  return {
+    activate() {
+      if (audio.paused) {
+        audio.play().catch(() => {
+          failed = true;
+          view.status = 'error';
+          redraw();
+        });
+      } else audio.pause();
+    },
+    stateText: () => (failed ? '音を読み込めませんでした' : audio.paused ? '停止中 ・ クリックで再生' : '再生中 ・ クリックで停止（近づくほど大きく聞こえる）'),
+    update(_dt, camera) {
+      if (audio.paused) return;
+      view.group.getWorldPosition(here);
+      const d = here.distanceTo(camera.position);
+      audio.volume = Math.max(0.08, Math.min(1, 1 - (d - AUDIO_NEAR) / (AUDIO_FAR - AUDIO_NEAR)));
+    },
+    dispose() {
+      audio.pause();
+      audio.removeAttribute('src');
+      audio.load();
+      tex.dispose();
     },
   };
 }
@@ -252,6 +345,7 @@ export function buildExhibit(placement: ExhibitPlacement, asset: ExhibitAsset): 
   if (asset.mount === 'floor') piece = buildFloorPiece(asset);
   else if (asset.type === 'image') piece = buildWallPiece(asset, faceMaterials(asset, view)); // TMS 45
   else if (asset.type === 'video') Object.assign(view, buildVideo(asset, view, (p) => (piece = p)));
+  else if (asset.type === 'audio') Object.assign(view, buildAudio(asset, view, (p) => (piece = p)));
   else if (asset.type === 'text') {
     // 文章作品（TMS 48）：紙のパネル。側面は紙の色、正面に文字
     const side = standard(PAPER);
@@ -280,8 +374,8 @@ export function buildExhibits(scene: THREE.Scene, doc: MuseumDocument, resolve: 
   }
   return {
     views,
-    update(dt) {
-      for (const v of views.values()) v.update?.(dt);
+    update(dt, camera) {
+      for (const v of views.values()) v.update?.(dt, camera);
     },
     dispose() {
       for (const v of views.values()) {
