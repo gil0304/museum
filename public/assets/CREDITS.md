@@ -8,3 +8,4 @@ MUSEUM に同梱しているサンプル作品の素材は、すべてこのア�
 | images/tidal-notes.jpg | Tidal Notes | `tools/assets/make_images.py` |
 | video/slow-weather.mp4 | Slow Weather | `tools/assets/make_video.sh`（ffmpeg の数式 geq で色の流れを描画。12 秒ループ、音声なし） |
 | audio/room-tone.mp3 | Room Tone | `tools/assets/make_audio.sh`（ffmpeg の aevalsrc で正弦波の和音を合成。24 秒ループ） |
+| models/knot.glb | Knot No.3 | `tools/assets/make_glb.mjs`（three.js の形状を GLTFExporter で GLB に書き出し） |

@@ -154,7 +154,8 @@ function spawnPose(b: RoomBounds | null): ViewPose {
 /** 美術館を切り替えるとき、古いシーンの GPU 資源（形状・材質・影のマップ）を解放する */
 export function disposeRoomScene(room: RoomScene) {
   room.scene.traverse((obj) => {
-    if (obj instanceof THREE.Mesh) {
+    // 読み込んだモデルを使い回している形状・材質（GLB。exhibits/exhibitObjects.ts）は解放しない
+    if (obj instanceof THREE.Mesh && !obj.userData.sharedAsset) {
       obj.geometry.dispose();
       (Array.isArray(obj.material) ? obj.material : [obj.material]).forEach((m) => m.dispose());
     }

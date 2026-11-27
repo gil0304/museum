@@ -2,6 +2,7 @@
 // 種類ごとの表示物を作る。座標の決まりは docs/EXHIBITS.md（壁の作品は壁の表面の点から手前へ、床の作品は台座の底から上へ）。
 // ライブラリ（data 層）は直接 import せず、main.ts から resolve 関数で受け取る。
 import * as THREE from 'three';
+import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { ExhibitAsset, ExhibitPlacement, MuseumDocument, RoomPart } from '../types/museum';
 
 export type ResolveAsset = (id: string) => ExhibitAsset | undefined;
@@ -26,6 +27,8 @@ export interface ExhibitView {
   activate?(): void;
   /** 作品情報パネルに添える今の状態（例「再生中」） */
   stateText?(): string;
+  /** 素材の読み込みが終わった（影の描き直しなど。main.ts が設定する） */
+  onLoad?(): void;
   dispose?(): void;
 }
 
@@ -318,8 +321,47 @@ function buildWallPiece(asset: ExhibitAsset, face: THREE.Material | THREE.Materi
   return g;
 }
 
-/** 床の作品：台座と、その上の仮の立体（GLB を読み込むまで。TMS 51） */
-function buildFloorPiece(asset: ExhibitAsset): THREE.Group {
+// ---- 3D 作品（GLB。TMS 51）----
+const gltfLoader = new GLTFLoader();
+/** 同じ素材は 1 回だけ読み込む（編集で部屋を作り直すたびに読み直さない） */
+const gltfCache = new Map<string, Promise<GLTF>>();
+function loadGltf(src: string) {
+  let p = gltfCache.get(src);
+  if (!p) {
+    p = gltfLoader.loadAsync(src);
+    p.catch(() => gltfCache.delete(src)); // 失敗したら次の作り直しで読み直す
+    gltfCache.set(src, p);
+  }
+  return p;
+}
+
+/**
+ * 読み込んだモデルを台座の上に載せる。台座の幅の 1.25 倍・作品の高さ（size[1]）に収まるよう縮め、底を台座の上面に合わせる。
+ * 形状・材質は読み込んだものを共有するので、部屋の片付け（disposeRoomScene）で解放しないよう印を付ける。
+ */
+function placeModel(gltf: GLTF, asset: ExhibitAsset): THREE.Object3D {
+  const model = gltf.scene.clone(true);
+  model.traverse((o) => {
+    if (o instanceof THREE.Mesh) {
+      o.castShadow = o.receiveShadow = true;
+      o.userData.sharedAsset = true;
+    }
+  });
+  const box = new THREE.Box3().setFromObject(model);
+  const size = box.getSize(new THREE.Vector3());
+  const [pw, h] = asset.size;
+  const scale = Math.min(h / size.y, (pw * 1.25) / Math.max(size.x, size.z));
+  model.scale.setScalar(scale);
+  const center = box.getCenter(new THREE.Vector3());
+  model.position.set(-center.x * scale, PEDESTAL_HEIGHT - box.min.y * scale, -center.z * scale);
+  const holder = new THREE.Group();
+  holder.name = 'model';
+  holder.add(model);
+  return holder;
+}
+
+/** 床の作品：台座と、その上の立体（GLB を読み込むまでは仮の結び目。TMS 51） */
+function buildFloorPiece(asset: ExhibitAsset, view?: ExhibitView): THREE.Group {
   const g = new THREE.Group();
   const [pw, h] = asset.size;
   const pedestal = box(pw, PEDESTAL_HEIGHT, pw, standard(PEDESTAL_COLOR), 0, PEDESTAL_HEIGHT / 2);
@@ -335,6 +377,23 @@ function buildFloorPiece(asset: ExhibitAsset): THREE.Group {
   knot.castShadow = knot.receiveShadow = true;
   knot.name = 'model';
   g.add(knot);
+  if (asset.type === 'glb' && asset.src && view) {
+    view.status = 'loading';
+    loadGltf(asset.src).then(
+      (gltf) => {
+        g.remove(knot);
+        knot.geometry.dispose();
+        (knot.material as THREE.Material).dispose();
+        g.add(placeModel(gltf, asset));
+        view.status = 'ready';
+        view.onLoad?.();
+      },
+      () => {
+        view.status = 'error'; // 仮の結び目のまま（真っ白・空にしない）
+        console.warn(`作品の3Dモデルを読み込めませんでした: ${asset.src}`);
+      },
+    );
+  }
   return g;
 }
 
@@ -342,7 +401,7 @@ export function buildExhibit(placement: ExhibitPlacement, asset: ExhibitAsset): 
   const group = new THREE.Group();
   const view: ExhibitView = { placement, asset, group, status: 'ready' };
   let piece: THREE.Group | undefined;
-  if (asset.mount === 'floor') piece = buildFloorPiece(asset);
+  if (asset.mount === 'floor') piece = buildFloorPiece(asset, view);
   else if (asset.type === 'image') piece = buildWallPiece(asset, faceMaterials(asset, view)); // TMS 45
   else if (asset.type === 'video') Object.assign(view, buildVideo(asset, view, (p) => (piece = p)));
   else if (asset.type === 'audio') Object.assign(view, buildAudio(asset, view, (p) => (piece = p)));

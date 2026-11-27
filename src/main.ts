@@ -91,6 +91,7 @@ const viewer = createViewer(shell.viewport, room.scene, room.camera, (dt, t) => 
     overlay.updateCutaway(room, room.camera, true);
   }
 });
+watchExhibitLoads(); // 最初の部屋の分
 const controls = attachFirstPersonControls(viewer.canvas, () => room.camera, {
   reducedMotion: () => reducedMotion.matches,
   constrain: (from, to) => collider.constrain(from, to),
@@ -149,12 +150,18 @@ overlay.group.add(editor.group);
 shell.setLibrary(LIBRARY.map((a) => ({ id: a.id, title: a.title, kind: `${TYPE_LABEL_SHORT[a.type]} ・ ${a.mount === 'wall' ? '壁' : '床'}` })));
 
 /** force: 同じ美術館でも作り直す（編集でデータを書き換えたとき） */
+/** 3D モデルなどを読み込み終えたら影を描き直す（影は部屋が変わったときだけ描くため。TMS 35・51） */
+function watchExhibitLoads() {
+  for (const v of exhibits.views.values()) v.onLoad = () => viewer.invalidateShadows();
+}
+
 function show(doc: MuseumDocument, force = false) {
   if (doc === shownDoc && !force) return;
   exhibits.dispose();
   disposeRoomScene(room);
   room = createRoomScene(doc, roomOptions);
   exhibits = buildExhibits(room.scene, doc, findAsset);
+  watchExhibitLoads();
   room.scene.add(overlay.group);
   shownDoc = doc;
   collider = createCollider(doc, exhibitObstacles(doc, findAsset));
