@@ -3,11 +3,19 @@
 
 export type StartKind = 'sample' | 'empty' | 'continue';
 
+/** 移動ボタンの入力（-1〜1）。forward は前が正、strafe は右が正 */
+export interface MoveInput {
+  forward: number;
+  strafe: number;
+}
+
 export interface ShellOptions {
   /** 体験開始ボタンが押された */
   onStart(kind: StartKind): void;
   /** ロゴが押された（タイトルに戻る） */
   onHome(): void;
+  /** 画面の移動ボタン（スマホ）を押している間の入力。離すと {0, 0}（TMS 37） */
+  onMove(input: MoveInput): void;
 }
 
 export interface Shell {
@@ -45,7 +53,15 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
       </div>
       <div class="m-topbar__group"><span class="hud__title"></span></div>
     </header>
-    <div class="m-hint">ドラッグ：見回す<span class="hud__keys"> ・ <kbd class="m-kbd">Q</kbd> <kbd class="m-kbd">E</kbd>：向きを変える</span></div>
+    <div class="m-hint">
+      ドラッグ：見回す<span class="hud__keys"> ・ <kbd class="m-kbd">W</kbd><kbd class="m-kbd">A</kbd><kbd class="m-kbd">S</kbd><kbd class="m-kbd">D</kbd> / 矢印：歩く ・ <kbd class="m-kbd">Shift</kbd>：速く ・ <kbd class="m-kbd">Q</kbd><kbd class="m-kbd">E</kbd>：向きを変える</span><span class="hud__touch"> ・ 右下のボタン：歩く</span>
+    </div>
+    <div class="move-pad" role="group" aria-label="移動（押している間歩く）">
+      ${padButton('forward', '前へ', 'M6 15l6-6 6 6')}
+      ${padButton('left', '左へ', 'M15 6l-6 6 6 6')}
+      ${padButton('right', '右へ', 'M9 6l6 6-6 6')}
+      ${padButton('back', '後ろへ', 'M6 9l6 6 6-6')}
+    </div>
   </div>
 </div>`;
 
@@ -62,6 +78,7 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
     if (btn) opts.onStart(btn.dataset.start as StartKind);
   });
   q<HTMLButtonElement>('.hud__home').addEventListener('click', () => opts.onHome());
+  bindMovePad(q<HTMLElement>('.move-pad'), opts.onMove);
 
   return {
     viewport,
@@ -78,4 +95,56 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
       if (focus) q<HTMLButtonElement>('.hud__home').focus({ preventScroll: true });
     },
   };
+}
+
+// ---- 移動ボタン（スマホ・タッチ端末。TMS 37）----
+type PadDir = 'forward' | 'back' | 'left' | 'right';
+const PAD_VECTORS: Record<PadDir, MoveInput> = {
+  forward: { forward: 1, strafe: 0 },
+  back: { forward: -1, strafe: 0 },
+  left: { forward: 0, strafe: -1 },
+  right: { forward: 0, strafe: 1 },
+};
+
+function padButton(dir: PadDir, label: string, path: string) {
+  return `<button type="button" class="move-pad__btn move-pad__btn--${dir}" data-move="${dir}" aria-label="${label}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="${path}" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>`;
+}
+
+/** 押している間だけ歩く。指 2 本で 2 つ同時（前＋右など）も可 */
+function bindMovePad(pad: HTMLElement, onMove: (input: MoveInput) => void) {
+  const active = new Map<number, PadDir>(); // pointerId → 方向
+  const emit = () => {
+    let forward = 0;
+    let strafe = 0;
+    for (const dir of active.values()) {
+      forward += PAD_VECTORS[dir].forward;
+      strafe += PAD_VECTORS[dir].strafe;
+    }
+    onMove({ forward, strafe });
+  };
+  pad.addEventListener('pointerdown', (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-move]');
+    if (!btn) return;
+    e.preventDefault(); // 長押しでの文字選択・拡大を防ぐ
+    try {
+      btn.setPointerCapture(e.pointerId); // 指がボタンの外へずれても押したままにする
+    } catch {
+      /* 取得できない環境でも、押している間の移動は続ける */
+    }
+    btn.classList.add('is-active');
+    active.set(e.pointerId, btn.dataset.move as PadDir);
+    emit();
+  });
+  const release = (e: PointerEvent) => {
+    if (!active.has(e.pointerId)) return;
+    active.delete(e.pointerId);
+    (e.target as HTMLElement).closest('[data-move]')?.classList.remove('is-active');
+    emit();
+  };
+  pad.addEventListener('pointerup', release);
+  pad.addEventListener('pointercancel', release);
+  pad.addEventListener('lostpointercapture', release);
+  pad.addEventListener('contextmenu', (e) => e.preventDefault()); // 長押しメニューを出さない
 }

@@ -38,6 +38,29 @@ body { margin: 0; background: var(--c-ink-900); color: var(--c-on-dark); font-fa
 .hud__title { font-size: var(--fs-sm); color: var(--c-on-dark-muted); }
 .hud .m-segment button:disabled { opacity: 0.45; cursor: not-allowed; }
 
+/* ---- 移動ボタン（タッチ端末・狭い画面だけ表示。TMS 37）---- */
+.move-pad {
+  position: absolute; z-index: var(--z-toolbar); right: var(--s-5); bottom: var(--s-7); /* 左下のヒントと高さをずらす */
+  display: none; grid-template: repeat(3, 52px) / repeat(3, 52px); gap: var(--s-1);
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.move-pad__btn {
+  display: grid; place-items: center; padding: 0; border: 1px solid var(--c-ink-700); border-radius: var(--r-2);
+  background: color-mix(in srgb, var(--c-ink-900) 72%, transparent); color: var(--c-on-dark); cursor: pointer;
+}
+.move-pad__btn svg { width: 24px; height: 24px; }
+.move-pad__btn.is-active { background: var(--c-accent); color: var(--c-ink-900); border-color: var(--c-accent); }
+.move-pad__btn--forward { grid-area: 1 / 2; }
+.move-pad__btn--left { grid-area: 2 / 1; }
+.move-pad__btn--right { grid-area: 2 / 3; }
+.move-pad__btn--back { grid-area: 3 / 2; }
+.hud__touch { display: none; }
+.m-hint .m-kbd + .m-kbd { margin-left: 2px; }
+@media (pointer: coarse), (max-width: 700px) {
+  .move-pad { display: grid; }
+  .hud__touch { display: inline; }
+}
+
 /* ---- スマホ（幅 700px 以下）---- */
 @media (max-width: 700px) {
   .title-screen {

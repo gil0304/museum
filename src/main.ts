@@ -44,6 +44,7 @@ let shownDoc: MuseumDocument = sampleMuseum;
 const shell = mountShell(app, {
   onStart: (kind) => (location.hash = `#/view/${kind}`),
   onHome: () => (location.hash = ''),
+  onMove: (input) => controls.setMoveInput(input),
 });
 
 const viewer = createViewer(shell.viewport, room.scene, room.camera, (dt, t) => {
