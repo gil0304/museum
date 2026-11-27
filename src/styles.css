@@ -38,6 +38,13 @@ body { margin: 0; background: var(--c-ink-900); color: var(--c-on-dark); font-fa
 .hud__title { font-size: var(--fs-sm); color: var(--c-on-dark-muted); }
 .hud .m-segment button:disabled { opacity: 0.45; cursor: not-allowed; }
 
+/* ---- 鑑賞 / 編集 の切り替え（TMS 39）---- */
+.hud[data-mode='view'] .hud__palette, .hud[data-mode='view'] .hud__hint-edit { display: none; }
+.hud[data-mode='edit'] .hud__hint-view, .hud[data-mode='edit'] .move-pad { display: none !important; }
+.hud__palette button:disabled { opacity: 0.35; cursor: not-allowed; }
+.hud__palette button:disabled:hover { background: transparent; color: var(--c-on-dark-muted); }
+.hud__hint-edit { text-shadow: 0 1px 6px rgba(249, 249, 249, 0.6); }
+
 /* ---- 移動ボタン（タッチ端末・狭い画面だけ表示。TMS 37）---- */
 .move-pad {
   position: absolute; z-index: var(--z-toolbar); right: var(--s-5); bottom: var(--s-7); /* 左下のヒントと高さをずらす */
@@ -71,5 +78,6 @@ body { margin: 0; background: var(--c-ink-900); color: var(--c-on-dark); font-fa
   .title-screen__actions .m-btn { flex: 1 1 100%; }
   .hud .m-segment { display: none; }
   .hud__keys { display: none; } /* スマホではキー操作の案内を出さない */
+  .hud__toast { top: calc(48px + var(--s-3)); bottom: auto; width: max-content; max-width: calc(100% - 32px); } /* 移動ボタンと重ならないよう上に出す */
   .m-topbar { height: 48px; }
 }

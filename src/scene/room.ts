@@ -17,6 +17,8 @@ export interface RoomScene {
   camera: THREE.PerspectiveCamera;
   /** 鑑賞を始める位置：部屋の手前の壁際から奥を向く（TMS 36） */
   spawn: ViewPose;
+  /** 建築パーツ（床・壁・展示台）のメッシュ。キーはパーツの id（編集での選択・半透明化に使う。TMS 39〜） */
+  parts: Map<string, THREE.Mesh>;
   /** 固定の基本照明（TMS 35）。ユーザーが照明を置く機能は作らない（docs/SUBMISSION_SCOPE.md） */
   lights: { ambient: THREE.HemisphereLight; key: THREE.DirectionalLight; fill: THREE.DirectionalLight };
 }
@@ -55,7 +57,7 @@ function box(size: THREE.Vector3Tuple, position: THREE.Vector3Tuple, material: T
 }
 
 /** 床・壁が占める範囲（XZ）と天井の高さ。天井と影の範囲に使う */
-interface RoomBounds {
+export interface RoomBounds {
   minX: number;
   maxX: number;
   minZ: number;
@@ -63,7 +65,7 @@ interface RoomBounds {
   height: number;
 }
 
-function roomBounds(parts: RoomPart[]): RoomBounds | null {
+export function roomBounds(parts: RoomPart[]): RoomBounds | null {
   const shell = parts.filter((p) => p.type === 'floor' || p.type === 'wall');
   if (shell.length === 0) return null;
   const b = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
@@ -212,9 +214,16 @@ export function createRoomScene(doc: MuseumDocument, options: RoomSceneOptions =
   fill.position.set(...LIGHT.fill.offset);
   scene.add(ambient, key, key.target, fill);
 
-  for (const part of doc.objects) scene.add(buildPart(part));
+  const parts = new Map<string, THREE.Mesh>();
+  for (const part of doc.objects) {
+    const mesh = buildPart(part);
+    mesh.userData.partId = part.id;
+    mesh.userData.partType = part.type;
+    parts.set(part.id, mesh);
+    scene.add(mesh);
+  }
   for (const ex of doc.exhibits) scene.add(buildExhibit(ex));
   if (bounds) scene.add(buildCeiling(bounds));
 
-  return { scene, camera, spawn: spawnPose(bounds), lights: { ambient, key, fill } };
+  return { scene, camera, spawn: spawnPose(bounds), parts, lights: { ambient, key, fill } };
 }

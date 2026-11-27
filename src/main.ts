@@ -1,16 +1,18 @@
-// エントリーポイント：データ（data）・3D（scene）・画面（ui）をつなぐだけ。各層の責務は docs/ARCHITECTURE.md。
+// エントリーポイント：データ（data）・3D（scene）・画面（ui）・編集（editor）をつなぐだけ。各層の責務は docs/ARCHITECTURE.md。
 // 画面は URL のハッシュで切り替える（公開先のリライト機能に頼らない）:
-//   （なし）タイトル / #/view/sample サンプル美術館 / #/view/empty 空の部屋 / #/view/continue 前回の続き
+//   （なし）タイトル / #/view/<kind> 鑑賞 / #/edit/<kind> 編集（kind = sample | empty | continue）
 import './styles.css';
 import type { MuseumDocument } from './types/museum';
 import { sampleMuseum } from './data/sampleMuseum';
 import { emptyRoom } from './data/emptyRoom';
-import { createRoomScene, disposeRoomScene, type RoomScene } from './scene/room';
+import { createRoomScene, disposeRoomScene, roomBounds, type RoomScene } from './scene/room';
 import { createViewer } from './scene/viewer';
 import { attachFirstPersonControls } from './scene/firstPersonControls';
+import { attachEditCamera } from './scene/editCamera';
+import { createEditOverlay, GRID_HALF } from './scene/editOverlay';
 import { createCollider } from './scene/collision';
 import { updateTitleCamera } from './scene/titleCamera';
-import { mountShell, type StartKind } from './ui/shell';
+import { mountShell, type EditTool, type StartKind, type ViewMode } from './ui/shell';
 
 const app = document.querySelector<HTMLDivElement>('#app');
 if (!app) throw new Error('app not found');
@@ -34,62 +36,140 @@ function museumFor(kind: StartKind): MuseumDocument {
   return sampleMuseum;
 }
 
-// ---- 3D と画面 ----
+// ---- 状態 ----
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+// 編集は PC 向け（docs/SUBMISSION_EXPERIENCE.md）。指で操作する端末・狭い画面は鑑賞のみ
+const editUnavailable = window.matchMedia('(max-width: 700px), (pointer: coarse)');
 // スマホ・タブレット（指で操作する端末）は影の解像度を下げて軽くする（TMS 35）
 const roomOptions = { shadowMapSize: window.matchMedia('(pointer: coarse)').matches ? 1024 : 2048 };
-let mode: 'title' | 'viewer' = 'title';
+
+type Screen = 'title' | ViewMode;
+let screen: Screen = 'title';
+/** 作業中の美術館。元データ（sampleMuseum など）を書き換えないよう複製して持つ（TMS 39） */
+let work: { kind: StartKind; doc: MuseumDocument } | null = null;
+let tool: EditTool = 'select';
+
 let room: RoomScene = createRoomScene(sampleMuseum, roomOptions);
 let shownDoc: MuseumDocument = sampleMuseum;
 let collider = createCollider(sampleMuseum); // 壁・展示台・床の当たり判定（TMS 38）
+const overlay = createEditOverlay(); // グリッドなど編集用の表示（TMS 39〜）
+room.scene.add(overlay.group);
 
 const shell = mountShell(app, {
-  onStart: (kind) => (location.hash = `#/view/${kind}`),
+  // 「空の部屋から作る」は編集モードで始める（PC のみ）。ほかは鑑賞から
+  onStart: (kind) => (location.hash = `#/${kind === 'empty' && !editUnavailable.matches ? 'edit' : 'view'}/${kind}`),
   onHome: () => (location.hash = ''),
   onMove: (input) => controls.setMoveInput(input),
+  // 鑑賞⇔編集は履歴に積まない（「戻る」でタイトルへ戻れるように）
+  onModeChange: (mode) => work && location.replace(`#/${mode}/${work.kind}`),
+  onTool: (next) => setTool(next),
 });
 
 const viewer = createViewer(shell.viewport, room.scene, room.camera, (dt, t) => {
-  if (mode === 'title') updateTitleCamera(room.camera, t, reducedMotion.matches);
-  else controls.update(dt);
+  if (screen === 'title') updateTitleCamera(room.camera, t, reducedMotion.matches);
+  else if (screen === 'view') controls.update(dt);
+  else {
+    editCamera.update(dt);
+    overlay.updateCutaway(room, room.camera, true);
+  }
 });
 const controls = attachFirstPersonControls(viewer.canvas, () => room.camera, {
   reducedMotion: () => reducedMotion.matches,
   constrain: (from, to) => collider.constrain(from, to),
+});
+const editCamera = attachEditCamera(viewer.canvas, () => room.camera, {
+  panLimit: GRID_HALF,
+  reducedMotion: () => reducedMotion.matches,
 });
 
 function show(doc: MuseumDocument) {
   if (doc === shownDoc) return;
   disposeRoomScene(room);
   room = createRoomScene(doc, roomOptions);
-  collider = createCollider(doc);
+  room.scene.add(overlay.group);
   shownDoc = doc;
+  collider = createCollider(doc);
   viewer.setScene(room.scene, room.camera);
 }
 
+function setTool(next: EditTool) {
+  tool = next;
+  shell.setTool(tool);
+  shell.setEditHint('');
+}
+
+function resetEditCamera(doc: MuseumDocument) {
+  const b = roomBounds(doc.objects);
+  if (!b) editCamera.reset([0, 0], GRID_HALF * 2);
+  else editCamera.reset([(b.minX + b.maxX) / 2, (b.minZ + b.maxZ) / 2], Math.max(b.maxX - b.minX, b.maxZ - b.minZ));
+}
+
 function route() {
-  const m = location.hash.match(/^#\/view\/(sample|empty|continue)$/);
-  if (m) {
-    const doc = museumFor(m[1] as StartKind);
-    show(doc);
-    const fromTitle = started && mode === 'title';
-    mode = 'viewer';
-    controls.reset(room.spawn); // 部屋の手前から奥を向いて立つ
-    controls.setEnabled(true);
-    shell.showViewer({ title: doc.title, focus: fromTitle });
-  } else {
+  const m = location.hash.match(/^#\/(view|edit)\/(sample|empty|continue)$/);
+  if (!m) {
     show(sampleMuseum); // タイトルの背景は常にサンプル美術館
-    const fromViewer = mode === 'viewer';
-    mode = 'title';
+    const fromViewer = screen !== 'title';
+    screen = 'title';
     controls.setEnabled(false);
+    editCamera.setEnabled(false);
+    overlay.setVisible(false);
+    overlay.updateCutaway(room, room.camera, false);
     shell.showTitle({ canContinue: loadAutosave() !== null, focus: fromViewer });
+    return;
   }
+
+  const kind = m[2] as StartKind;
+  const mode = m[1] as ViewMode;
+  if (mode === 'edit' && editUnavailable.matches) {
+    // スマホ・狭い画面で編集の URL を開いたときは鑑賞にする
+    shell.toast('編集は PC のブラウザで行えます。鑑賞モードで開きました');
+    redirecting = true; // 置き換え後の表示は「画面の切り替え」ではないので、フォーカスを動かさない
+    location.replace(`#/view/${kind}`);
+    return;
+  }
+
+  const fresh = !work || work.kind !== kind;
+  if (fresh) work = { kind, doc: structuredClone(museumFor(kind)) };
+  const doc = work!.doc;
+  show(doc);
+
+  const fromTitle = started && !redirecting && screen === 'title';
+  redirecting = false;
+  const prev = screen;
+  screen = mode;
+  if (mode === 'view') {
+    editCamera.setEnabled(false);
+    overlay.setVisible(false);
+    overlay.updateCutaway(room, room.camera, false);
+    if (fresh || prev === 'title') controls.reset(room.spawn); // 部屋の手前から奥を向いて立つ
+    controls.setEnabled(true); // 編集から戻ったときは、編集前に立っていた場所から続ける
+  } else {
+    controls.setEnabled(false);
+    if (fresh || prev !== 'edit') resetEditCamera(doc);
+    editCamera.setEnabled(true);
+    overlay.setVisible(true);
+    shell.setAvailableTools(['select']); // 床・壁・削除は TMS 40〜42 で使えるようにする
+    setTool(tool);
+  }
+  shell.showViewer({ title: doc.title, mode, canEdit: !editUnavailable.matches, focus: fromTitle });
 }
 
 let started = false; // 最初の表示ではフォーカスを動かさない
+let redirecting = false;
 window.addEventListener('hashchange', route);
 route();
 started = true;
 
-// 開発時だけ：自動確認（Claude in Chrome）で視点を読むための入口。本番ビルドには含まれない
-if (import.meta.env.DEV) (window as unknown as { __museum: unknown }).__museum = { controls, get room() { return room; } };
+// 開発時だけ：自動確認（Claude in Chrome）で状態を読むための入口。本番ビルドには含まれない
+if (import.meta.env.DEV) {
+  (window as unknown as { __museum: unknown }).__museum = {
+    controls,
+    editCamera,
+    get room() {
+      return room;
+    },
+    get work() {
+      return work;
+    },
+  };
+}

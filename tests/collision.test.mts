@@ -16,9 +16,9 @@ function walk(doc: MuseumDocument, start: P, dx: number, dz: number, steps = 300
 }
 
 test('壁の内面から体の半径だけ手前で止まる（奥・右・手前）', () => {
-  near(walk(sampleMuseum, [0, 1.6, 2.2], 0, -0.06)[2], -3.4 + BODY_RADIUS);
-  near(walk(sampleMuseum, [0, 1.6, 2.2], 0.06, 0)[0], 4.4 - BODY_RADIUS);
-  near(walk(sampleMuseum, [0, 1.6, 2.2], 0, 0.06)[2], 3.4 - BODY_RADIUS);
+  near(walk(sampleMuseum, [0, 1.6, 2.2], 0, -0.06)[2], -3.9 + BODY_RADIUS);
+  near(walk(sampleMuseum, [0, 1.6, 2.2], 0.06, 0)[0], 4.9 - BODY_RADIUS);
+  near(walk(sampleMuseum, [0, 1.6, 2.2], 0, 0.06)[2], 3.9 - BODY_RADIUS);
 });
 
 test('展示台も通り抜けない', () => {
@@ -27,24 +27,24 @@ test('展示台も通り抜けない', () => {
 
 test('斜めにぶつかると壁に沿って滑る', () => {
   const p = walk(sampleMuseum, [0, 1.6, 2.2], 0.03, -0.05, 200);
-  near(p[0], 4.4 - BODY_RADIUS);
-  near(p[2], -3.4 + BODY_RADIUS);
+  near(p[0], 4.9 - BODY_RADIUS);
+  near(p[2], -3.9 + BODY_RADIUS);
 });
 
 test('1 フレームの最大移動（速歩き 3.4m/s × 0.05s）でも壁を抜けない', () => {
   const c = createCollider(sampleMuseum);
-  const p = c.constrain([0, 1.6, 3.0], [0, 1.6, 3.17]);
-  assert.ok(p[2] <= 3.4 - BODY_RADIUS + 1e-9);
+  const p = c.constrain([0, 1.6, 3.5], [0, 1.6, 3.67]);
+  assert.ok(p[2] <= 3.9 - BODY_RADIUS + 1e-9);
 });
 
 test('壁の無い床だけの部屋では床の端で止まる', () => {
   const floorOnly = { ...sampleMuseum, objects: sampleMuseum.objects.filter((o) => o.type === 'floor') };
-  near(walk(floorOnly, [0, 1.6, 0], 0.06, 0)[0], 4.5);
+  near(walk(floorOnly, [0, 1.6, 0], 0.06, 0)[0], 5);
 });
 
 test('すでに壁に埋まっている位置からは出られる', () => {
   const c = createCollider(sampleMuseum);
-  assert.deepEqual(c.constrain([0, 1.6, -3.5], [0, 1.6, -3.3]), [0, 1.6, -3.3]);
+  assert.deepEqual(c.constrain([0, 1.6, -4], [0, 1.6, -3.8]), [0, 1.6, -3.8]);
 });
 
 test('目の高さ（Y）は変えない', () => {
