@@ -16,6 +16,8 @@ const ART_DEPTH = 0.04;
 export interface ExhibitView {
   placement: ExhibitPlacement;
   asset: ExhibitAsset;
+  /** 素材の読み込み状態（作品情報パネル・読み込み失敗の表示。TMS 63） */
+  status: 'ready' | 'loading' | 'error';
   /** 作品全体（クリック判定の対象） */
   group: THREE.Group;
   /** 毎フレーム（動画・回転など。必要な作品だけ） */
@@ -32,15 +34,47 @@ export interface ExhibitSet {
 const standard = (color: string, extra: THREE.MeshStandardMaterialParameters = {}) =>
   new THREE.MeshStandardMaterial({ color, roughness: 0.85, ...extra });
 
-function box(w: number, h: number, d: number, material: THREE.Material, z = 0, y = 0) {
+function box(w: number, h: number, d: number, material: THREE.Material | THREE.Material[], z = 0, y = 0) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
   mesh.position.set(0, y, z);
   mesh.castShadow = true;
   return mesh;
 }
 
+const textureLoader = new THREE.TextureLoader();
+
+/**
+ * 箱の正面（+Z）にだけ画像を貼る材質の組。BoxGeometry の面の順は +X, -X, +Y, -Y, +Z, -Z。
+ * 読み込むまでは placeholderColor、失敗したらそのまま（真っ白・真っ黒にしない）
+ */
+function faceMaterials(asset: ExhibitAsset, view: { status: ExhibitView['status'] }, onReady?: () => void) {
+  const side = standard(asset.placeholderColor);
+  const front = standard(asset.placeholderColor, { roughness: 0.9 });
+  if (asset.src) {
+    view.status = 'loading';
+    textureLoader.load(
+      asset.src,
+      (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = 8;
+        front.map = tex;
+        front.color.set('#ffffff');
+        front.needsUpdate = true;
+        view.status = 'ready';
+        onReady?.();
+      },
+      undefined,
+      () => {
+        view.status = 'error';
+        console.warn(`作品の画像を読み込めませんでした: ${asset.src}`);
+      },
+    );
+  }
+  return [side, side, side, side, front, side];
+}
+
 /** 壁の作品：額縁（あれば）と作品面。作品面は壁から FRAME_DEPTH + ART_DEPTH の位置 */
-function buildWallPiece(asset: ExhibitAsset, face: THREE.Material): THREE.Group {
+function buildWallPiece(asset: ExhibitAsset, face: THREE.Material | THREE.Material[]): THREE.Group {
   const g = new THREE.Group();
   const [w, h] = asset.size;
   let front = 0;
@@ -76,15 +110,18 @@ function buildFloorPiece(asset: ExhibitAsset): THREE.Group {
 }
 
 export function buildExhibit(placement: ExhibitPlacement, asset: ExhibitAsset): ExhibitView {
-  const piece =
-    asset.mount === 'floor' ? buildFloorPiece(asset) : buildWallPiece(asset, standard(asset.placeholderColor));
   const group = new THREE.Group();
+  const view: ExhibitView = { placement, asset, group, status: 'ready' };
+  let piece: THREE.Group;
+  if (asset.mount === 'floor') piece = buildFloorPiece(asset);
+  else if (asset.type === 'image') piece = buildWallPiece(asset, faceMaterials(asset, view)); // TMS 45
+  else piece = buildWallPiece(asset, standard(asset.placeholderColor));
   group.name = placement.id;
   group.userData.exhibitId = placement.id;
   group.position.set(...placement.position);
   group.rotation.y = placement.rotationY;
   group.add(piece);
-  return { placement, asset, group };
+  return view;
 }
 
 /** 美術館データの作品をすべて作り、scene に入れる。ライブラリに無い作品は飛ばす（壊れた JSON でも止めない） */
@@ -103,7 +140,15 @@ export function buildExhibits(scene: THREE.Scene, doc: MuseumDocument, resolve: 
       for (const v of views.values()) v.update?.(dt);
     },
     dispose() {
-      for (const v of views.values()) v.dispose?.();
+      for (const v of views.values()) {
+        v.dispose?.();
+        // 画像のテクスチャは材質の dispose では解放されないので、ここで解放する
+        v.group.traverse((o) => {
+          if (o instanceof THREE.Mesh) {
+            for (const m of Array.isArray(o.material) ? o.material : [o.material]) (m as THREE.MeshStandardMaterial).map?.dispose();
+          }
+        });
+      }
     },
   };
 }
