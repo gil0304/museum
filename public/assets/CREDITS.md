@@ -6,3 +6,4 @@ MUSEUM に同梱しているサンプル作品の素材は、すべてこのア�
 |---|---|---|
 | images/first-light.jpg | First Light | `tools/assets/make_images.py`（Pillow で描画。乱数の種を固定） |
 | images/tidal-notes.jpg | Tidal Notes | `tools/assets/make_images.py` |
+| video/slow-weather.mp4 | Slow Weather | `tools/assets/make_video.sh`（ffmpeg の数式 geq で色の流れを描画。12 秒ループ、音声なし） |

@@ -22,6 +22,10 @@ export interface ExhibitView {
   group: THREE.Group;
   /** 毎フレーム（動画・回転など。必要な作品だけ） */
   update?(dt: number): void;
+  /** 鑑賞中にクリックされた（動画の再生・一時停止、音の再生・停止など。TMS 49〜） */
+  activate?(): void;
+  /** 作品情報パネルに添える今の状態（例「再生中」） */
+  stateText?(): string;
   dispose?(): void;
 }
 
@@ -71,6 +75,59 @@ function faceMaterials(asset: ExhibitAsset, view: { status: ExhibitView['status'
     );
   }
   return [side, side, side, side, front, side];
+}
+
+// ---- 動画作品（TMS 49）----
+/**
+ * 展示スクリーン：音の無い動画を最初からループ再生し（ブラウザの自動再生の制限に当たらない）、クリックで一時停止・再生。
+ * スクリーンは照明の影響を受けない材質（画面が光って見える）。読み込めなければ仮の色のまま。
+ */
+function buildVideo(asset: ExhibitAsset, view: ExhibitView, setPiece: (g: THREE.Group) => void): Partial<ExhibitView> {
+  const video = document.createElement('video');
+  video.src = asset.src ?? '';
+  video.muted = true;
+  video.loop = true;
+  video.playsInline = true;
+  video.preload = 'auto';
+  video.crossOrigin = 'anonymous';
+  const side = standard(FRAME_COLOR);
+  const screen = new THREE.MeshBasicMaterial({ color: asset.placeholderColor, toneMapped: false });
+  setPiece(buildWallPiece(asset, [side, side, side, side, screen, side]));
+  view.status = 'loading';
+  let texture: THREE.VideoTexture | null = null;
+  let userPaused = false;
+  video.addEventListener('loadeddata', () => {
+    texture = new THREE.VideoTexture(video);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    screen.map = texture;
+    screen.color.set('#ffffff');
+    screen.needsUpdate = true;
+    view.status = 'ready';
+  });
+  video.addEventListener('error', () => {
+    view.status = 'error';
+    console.warn(`作品の動画を読み込めませんでした: ${asset.src}`);
+  });
+  // 自動再生できない環境（省電力設定など）では、クリックで再生できる
+  video.play().catch(() => (userPaused = true));
+  return {
+    activate() {
+      if (video.paused) {
+        userPaused = false;
+        void video.play();
+      } else {
+        userPaused = true;
+        video.pause();
+      }
+    },
+    stateText: () => (view.status === 'error' ? '動画を読み込めませんでした' : video.paused || userPaused ? '一時停止中 ・ クリックで再生' : '再生中 ・ クリックで一時停止'),
+    dispose() {
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+      texture?.dispose();
+    },
+  };
 }
 
 // ---- 文章作品（TMS 48）----
@@ -191,9 +248,10 @@ function buildFloorPiece(asset: ExhibitAsset): THREE.Group {
 export function buildExhibit(placement: ExhibitPlacement, asset: ExhibitAsset): ExhibitView {
   const group = new THREE.Group();
   const view: ExhibitView = { placement, asset, group, status: 'ready' };
-  let piece: THREE.Group;
+  let piece: THREE.Group | undefined;
   if (asset.mount === 'floor') piece = buildFloorPiece(asset);
   else if (asset.type === 'image') piece = buildWallPiece(asset, faceMaterials(asset, view)); // TMS 45
+  else if (asset.type === 'video') Object.assign(view, buildVideo(asset, view, (p) => (piece = p)));
   else if (asset.type === 'text') {
     // 文章作品（TMS 48）：紙のパネル。側面は紙の色、正面に文字
     const side = standard(PAPER);
@@ -203,6 +261,7 @@ export function buildExhibit(placement: ExhibitPlacement, asset: ExhibitAsset): 
   else piece = buildWallPiece(asset, standard(asset.placeholderColor));
   group.name = placement.id;
   group.userData.exhibitId = placement.id;
+  piece ??= buildWallPiece(asset, standard(asset.placeholderColor));
   group.position.set(...placement.position);
   group.rotation.y = placement.rotationY;
   group.add(piece);

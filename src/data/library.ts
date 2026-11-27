@@ -55,9 +55,10 @@ export const LIBRARY: readonly ExhibitAsset[] = [
     title: 'Slow Weather',
     author: 'MUSEUM サンプル作品',
     year: '2026',
-    description: 'ゆっくり形を変える雲のような色の流れ。クリックで再生・一時停止（音は無し）。',
+    description: 'ゆっくり形を変える雲のような色の流れ（12 秒でひと巡り、音は無し）。スクリーンをクリックすると一時停止・再生。',
     src: 'assets/video/slow-weather.mp4',
     size: [1.6, 0.9],
+    frameSize: [1.7, 1.0], // スクリーンの縁
     placeholderColor: '#2a3b45',
   },
   {

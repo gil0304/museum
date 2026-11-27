@@ -63,7 +63,7 @@ body { margin: 0; background: var(--c-ink-900); color: var(--c-on-dark); font-fa
 /* 作品情報パネル（鑑賞中・右下。TMS 46） */
 .hud__info { position: absolute; z-index: var(--z-panel); right: var(--s-5); bottom: var(--s-5); width: min(340px, calc(100% - 32px)); max-height: calc(100% - var(--topbar-h) - 40px); overflow: auto; }
 .hud[data-mode='edit'] .hud__info { display: none; }
-.hud__info-meta { margin-bottom: var(--s-2) !important; }
+.hud__info-meta { margin-bottom: var(--s-2) !important; white-space: pre-line; }
 .hud__info-badge { margin: 0 0 var(--s-2) !important; }
 .hud__info-desc { white-space: pre-line; }
 

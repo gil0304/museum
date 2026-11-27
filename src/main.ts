@@ -112,7 +112,7 @@ function exhibitInfo(view: ExhibitView) {
   return {
     eyebrow: `Exhibit / ${no} ・ ${TYPE_LABEL[a.type]}`,
     title: p.title ?? a.title,
-    meta: [a.author, a.year].filter(Boolean).join(' ・ '),
+    meta: [a.author, a.year].filter(Boolean).join(' ・ ') + (view.stateText ? `\n${view.stateText()}` : ''),
     // 文章作品は全文も読めるようにする（壁のパネルに収まらない分も）
     description: (p.description ?? a.description) + (a.type === 'text' && a.body ? `\n\n${a.body}` : ''),
     interactive: a.type === 'interactive-html',
@@ -120,7 +120,9 @@ function exhibitInfo(view: ExhibitView) {
 }
 function openExhibit(x: number, y: number) {
   const view = pickExhibit(exhibits, room.camera, viewer.canvas, x, y, [...room.parts.values()]);
-  if (view) shell.showExhibitInfo(exhibitInfo(view));
+  if (!view) return;
+  view.activate?.(); // 動画の再生・一時停止、音の再生・停止など
+  shell.showExhibitInfo(exhibitInfo(view));
 }
 const editCamera = attachEditCamera(viewer.canvas, () => room.camera, {
   panLimit: GRID_HALF,
