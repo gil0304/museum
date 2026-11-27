@@ -24,6 +24,22 @@ import { mountShell, type EditTool, type StartKind, type ViewMode } from './ui/s
 const app = document.querySelector<HTMLDivElement>('#app');
 if (!app) throw new Error('app not found');
 
+// 3D を描けない環境（WebGL2 が無い・無効）では、真っ白にせず理由を出して止める（TMS 63）
+if (!document.createElement('canvas').getContext('webgl2')) {
+  app.innerHTML = `<div class="no-webgl"><div class="m-eyebrow">MUSEUM</div><h1 class="m-hero">3D を表示できませんでした</h1>
+<p>このブラウザ・端末では WebGL2 が使えないため、展示室を描けません。PC の Google Chrome（最新版）でお試しください。ハードウェアアクセラレーションが無効になっている場合は、ブラウザの設定で有効にしてください。</p></div>`;
+  throw new Error('WebGL2 が使えません');
+}
+
+/**
+ * 作品ライブラリから作品を引く。開発時だけ `?break=assets` で素材のパスをわざと壊し、読み込み失敗の表示を確かめられる（TMS 63）
+ */
+const breakAssets = import.meta.env.DEV && new URLSearchParams(location.search).get('break') === 'assets';
+const resolveAsset = (id: string) => {
+  const a = findAsset(id);
+  return a && breakAssets && a.src ? { ...a, src: `${a.src}.missing` } : a;
+};
+
 // ---- ブラウザ内の保存（TMS 57）----
 // 編集するたびに、作業中の美術館を localStorage に保存する（JSON の書き出しと同じ形）。タイトルの「続きから」で開く。
 const AUTOSAVE_KEY = 'museum.autosave.v1';
@@ -176,7 +192,9 @@ function exhibitInfo(view: ExhibitView) {
   return {
     eyebrow: `Exhibit / ${no} ・ ${TYPE_LABEL[a.type]}`,
     title: p.title ?? a.title,
-    meta: [a.author, a.year].filter(Boolean).join(' ・ ') + (view.stateText ? `\n${view.stateText()}` : ''),
+    meta:
+      [a.author, a.year].filter(Boolean).join(' ・ ') +
+      (view.status === 'error' && view.errorText ? `\n⚠ ${view.errorText}` : view.stateText ? `\n${view.stateText()}` : ''),
     // 文章作品は全文も読めるようにする（壁のパネルに収まらない分も）
     description: (p.description ?? a.description) + (a.type === 'text' && a.body ? `\n\n${a.body}` : ''),
     interactive: a.type === 'interactive-html',
@@ -215,9 +233,19 @@ overlay.group.add(editor.group);
 shell.setLibrary(LIBRARY.map((a) => ({ id: a.id, title: a.title, kind: `${TYPE_LABEL_SHORT[a.type]} ・ ${a.mount === 'wall' ? '壁' : '床'}` })));
 
 /** force: 同じ美術館でも作り直す（編集でデータを書き換えたとき） */
-/** 3D モデルなどを読み込み終えたら影を描き直す（影は部屋が変わったときだけ描くため。TMS 35・51） */
+/** 3D モデルなどを読み込み終えたら影を描き直す（影は部屋が変わったときだけ描くため。TMS 35・51）。失敗は 1 回だけ知らせる（TMS 63） */
+let loadErrorTimer = 0;
 function watchExhibitLoads() {
-  for (const v of exhibits.views.values()) v.onLoad = () => viewer.invalidateShadows();
+  for (const v of exhibits.views.values()) {
+    v.onLoad = () => viewer.invalidateShadows();
+    v.onError = () => {
+      clearTimeout(loadErrorTimer);
+      loadErrorTimer = window.setTimeout(() => {
+        const n = [...exhibits.views.values()].filter((x) => x.status === 'error').length;
+        if (n && screen !== 'title') shell.toast(`${n} 点の作品の素材を読み込めませんでした。仮の表示にしています（通信を確かめて、ページを読み込み直してください）`);
+      }, 600);
+    };
+  }
 }
 
 function show(doc: MuseumDocument, force = false) {
@@ -225,11 +253,11 @@ function show(doc: MuseumDocument, force = false) {
   exhibits.dispose();
   disposeRoomScene(room);
   room = createRoomScene(doc, roomOptions);
-  exhibits = buildExhibits(room.scene, doc, findAsset);
+  exhibits = buildExhibits(room.scene, doc, resolveAsset);
   watchExhibitLoads();
   room.scene.add(overlay.group);
   shownDoc = doc;
-  collider = createCollider(doc, exhibitObstacles(doc, findAsset));
+  collider = createCollider(doc, exhibitObstacles(doc, resolveAsset));
   viewer.setScene(room.scene, room.camera);
 }
 
@@ -359,6 +387,10 @@ function route() {
   }
   shell.showViewer({ title: doc.title, mode, canEdit: !editUnavailable.matches, focus: fromTitle });
   shell.showGuide(mode, window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 700); // 初めてのときだけ（TMS 62）
+  // 作品の無い部屋を鑑賞で開いたとき（TMS 63）
+  if (mode === 'view' && doc.exhibits.length === 0) {
+    shell.toast(editUnavailable.matches ? 'この部屋にはまだ作品がありません' : 'この部屋にはまだ作品がありません。上の「編集」→ 左の「作品」から飾れます');
+  }
 }
 
 let started = false; // 最初の表示ではフォーカスを動かさない

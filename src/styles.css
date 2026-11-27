@@ -171,3 +171,9 @@ body { margin: 0; background: var(--c-ink-900); color: var(--c-on-dark); font-fa
   .help__grid { grid-template-columns: 1fr; }
   .help dl { grid-template-columns: 6em 1fr; }
 }
+
+/* ---- 3D を表示できない環境（TMS 63）---- */
+.no-webgl { max-width: 640px; margin: 15vh auto; padding: 0 var(--s-5); color: var(--c-on-dark); }
+.no-webgl .m-eyebrow { color: var(--c-accent); }
+.no-webgl .m-hero { font-size: clamp(26px, 4vw, 40px); margin: var(--s-3) 0 var(--s-4); }
+.no-webgl p { line-height: var(--lh-body); color: var(--c-on-dark-muted); }

@@ -30,6 +30,10 @@ export interface ExhibitView {
   stateText?(): string;
   /** 素材の読み込みが終わった（影の描き直しなど。main.ts が設定する） */
   onLoad?(): void;
+  /** 素材を読み込めなかった（通知。main.ts が設定する。TMS 63） */
+  onError?(): void;
+  /** 読み込めなかったときの説明（作品情報パネルに出す） */
+  errorText?: string;
   dispose?(): void;
 }
 
@@ -51,11 +55,45 @@ function box(w: number, h: number, d: number, material: THREE.Material | THREE.M
 
 const textureLoader = new THREE.TextureLoader();
 
+// ---- 読み込み失敗の表示（TMS 63）----
+/** 作品の面に「読み込めませんでした」と作品名を描く（真っ白・真っ黒・空にしない） */
+function errorTexture(asset: ExhibitAsset, message: string): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  const [w, h] = asset.size;
+  c.width = 640;
+  c.height = Math.max(200, Math.round((640 * h) / w));
+  const g = c.getContext('2d')!;
+  g.fillStyle = '#e4ded3';
+  g.fillRect(0, 0, c.width, c.height);
+  g.strokeStyle = '#b8b0a2';
+  g.lineWidth = 6;
+  g.setLineDash([18, 12]);
+  g.strokeRect(14, 14, c.width - 28, c.height - 28);
+  g.textAlign = 'center';
+  g.fillStyle = '#5c564d';
+  g.font = '600 30px system-ui, sans-serif';
+  g.fillText(message, c.width / 2, c.height / 2 - 10);
+  g.fillStyle = '#7a7368';
+  g.font = '400 26px "Hiragino Mincho ProN", "Yu Mincho", serif';
+  g.fillText(asset.title, c.width / 2, c.height / 2 + 34);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/** 読み込み失敗を記録し、知らせる */
+function markError(view: ExhibitView, text: string, what: string) {
+  view.status = 'error';
+  view.errorText = text;
+  console.warn(`作品の${what}を読み込めませんでした: ${view.asset.src}`);
+  view.onError?.();
+}
+
 /**
  * 箱の正面（+Z）にだけ画像を貼る材質の組。BoxGeometry の面の順は +X, -X, +Y, -Y, +Z, -Z。
  * 読み込むまでは placeholderColor、失敗したらそのまま（真っ白・真っ黒にしない）
  */
-function faceMaterials(asset: ExhibitAsset, view: { status: ExhibitView['status'] }, onReady?: () => void) {
+function faceMaterials(asset: ExhibitAsset, view: ExhibitView, onReady?: () => void) {
   const side = standard(asset.placeholderColor);
   const front = standard(asset.placeholderColor, { roughness: 0.9 });
   if (asset.src) {
@@ -73,8 +111,10 @@ function faceMaterials(asset: ExhibitAsset, view: { status: ExhibitView['status'
       },
       undefined,
       () => {
-        view.status = 'error';
-        console.warn(`作品の画像を読み込めませんでした: ${asset.src}`);
+        front.map = errorTexture(asset, '画像を読み込めませんでした');
+        front.color.set('#ffffff');
+        front.needsUpdate = true;
+        markError(view, '画像を読み込めませんでした（仮の表示）。通信を確かめて、ページを読み込み直してください', '画像');
       },
     );
   }
@@ -109,8 +149,11 @@ function buildVideo(asset: ExhibitAsset, view: ExhibitView, setPiece: (g: THREE.
     view.status = 'ready';
   });
   video.addEventListener('error', () => {
-    view.status = 'error';
-    console.warn(`作品の動画を読み込めませんでした: ${asset.src}`);
+    if (!video.getAttribute('src')) return; // 片付けで src を外したとき
+    screen.map = errorTexture(asset, '動画を読み込めませんでした');
+    screen.color.set('#ffffff');
+    screen.needsUpdate = true;
+    markError(view, '動画を読み込めませんでした（仮の表示）', '動画');
   });
   // 自動再生できない環境（省電力設定など）では、クリックで再生できる
   video.play().catch(() => (userPaused = true));
@@ -196,9 +239,8 @@ function buildAudio(asset: ExhibitAsset, view: ExhibitView, setPiece: (g: THREE.
   audio.addEventListener('error', () => {
     if (!audio.getAttribute('src')) return; // 片付けで src を外したとき
     failed = true;
-    view.status = 'error';
     redraw();
-    console.warn(`作品の音を読み込めませんでした: ${asset.src}`);
+    markError(view, '音を読み込めませんでした', '音');
   });
   const here = new THREE.Vector3();
   return {
@@ -390,8 +432,8 @@ function buildFloorPiece(asset: ExhibitAsset, view?: ExhibitView): THREE.Group {
         view.onLoad?.();
       },
       () => {
-        view.status = 'error'; // 仮の結び目のまま（真っ白・空にしない）
-        console.warn(`作品の3Dモデルを読み込めませんでした: ${asset.src}`);
+        // 仮の結び目のまま（真っ白・空にしない）
+        markError(view, '3D モデルを読み込めませんでした（仮の形で表示しています）', '3Dモデル');
       },
     );
   }
