@@ -37,9 +37,10 @@ export interface Collider {
   constrain: MoveConstraint;
 }
 
-export function createCollider(doc: MuseumDocument, radius = BODY_RADIUS): Collider {
+/** extra：建築パーツ以外の障害物（床の作品の台座など。exhibits/exhibitObstacles） */
+export function createCollider(doc: MuseumDocument, extra: RoomPart[] = [], radius = BODY_RADIUS): Collider {
   const floors = doc.objects.filter((p) => p.type === 'floor').map(rectOf);
-  const obstacles = doc.objects.filter((p) => p.type === 'wall' || p.type === 'pedestal').map(rectOf);
+  const obstacles = [...doc.objects, ...extra].filter((p) => p.type === 'wall' || p.type === 'pedestal').map(rectOf);
 
   // 床は複数のマスに分かれていてもよい（つなぎ目で止まらないよう、中心点が床のどれかの上にあれば立てる）
   const onFloor = (x: number, z: number) => floors.length === 0 || floors.some((f) => inside(x, z, f));

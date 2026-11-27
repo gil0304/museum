@@ -1,6 +1,6 @@
 // 美術館データ（MuseumDocument）から Three.js のシーンを組み立てる。DOM には触れない。
 import * as THREE from 'three';
-import { ROOM_GRID, type ExhibitPlacement, type MuseumDocument, type RoomPart } from '../types/museum';
+import { ROOM_GRID, type MuseumDocument, type RoomPart } from '../types/museum';
 
 /** 一人称の視点（目の位置と向き）。yaw は Y 軸まわり（0 で -Z を向く）、pitch は上下（正で上） */
 export interface ViewPose {
@@ -28,13 +28,9 @@ export interface RoomSceneOptions {
   shadowMapSize?: number;
 }
 
-const FRAME_COLOR = '#262c30';
 const CEILING_COLOR = '#f1eee8';
 const CEILING_LIGHT_COLOR = '#fff7e8';
 const CEILING_GLOW = 0.45;
-const FRAME_DEPTH = 0.09;
-const ART_DEPTH = 0.1;
-const FRAME_BEHIND_ART = 0.08; // 額縁は作品面より少し奥
 
 // ---- 基本照明（TMS 35）----
 // 天井の照明から降りてくる柔らかい光を想定。全体の明るさは半球光、影は手前上からの主光だけが落とす。
@@ -124,38 +120,6 @@ function buildCeiling(b: RoomBounds): THREE.Group {
   return group;
 }
 
-// 素材が入るまでの仮表示。画像系は色の板（＋額縁）、GLB は仮の彫刻。どれも影を落とす。
-function buildExhibit(ex: ExhibitPlacement) {
-  const group = new THREE.Group();
-  group.name = ex.id;
-  group.position.set(...ex.position);
-  group.rotation.y = ex.rotationY ?? 0;
-  const color = ex.placeholderColor ?? '#888888';
-
-  if (ex.type === 'glb') {
-    const knot = new THREE.Mesh(
-      new THREE.TorusKnotGeometry(0.37, 0.13, 84, 10),
-      new THREE.MeshStandardMaterial({ color, metalness: 0.25, roughness: 0.4 }),
-    );
-    knot.castShadow = true;
-    knot.receiveShadow = true;
-    group.add(knot);
-    return group;
-  }
-
-  const [w, h] = ex.size ?? [1, 1];
-  const art = box([w, h, ART_DEPTH], [0, 0, 0], standard(color));
-  art.castShadow = true;
-  group.add(art);
-  if (ex.frameSize) {
-    const [fw, fh] = ex.frameSize;
-    const frame = box([fw, fh, FRAME_DEPTH], [0, 0, -FRAME_BEHIND_ART], standard(FRAME_COLOR));
-    frame.castShadow = true;
-    group.add(frame);
-  }
-  return group;
-}
-
 /** 主光と影の範囲を部屋に合わせる。影の正射影カメラが部屋全体を覆うようにする */
 function aimKeyLight(key: THREE.DirectionalLight, b: RoomBounds | null, mapSize: number) {
   const cx = b ? (b.minX + b.maxX) / 2 : 0;
@@ -222,7 +186,7 @@ export function createRoomScene(doc: MuseumDocument, options: RoomSceneOptions =
     parts.set(part.id, mesh);
     scene.add(mesh);
   }
-  for (const ex of doc.exhibits) scene.add(buildExhibit(ex));
+  // 作品は exhibits/exhibitObjects.ts が別に作って scene に入れる（TMS 44）
   if (bounds) scene.add(buildCeiling(bounds));
 
   return { scene, camera, spawn: spawnPose(bounds), parts, lights: { ambient, key, fill } };

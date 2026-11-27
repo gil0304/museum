@@ -3,6 +3,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createCollider, BODY_RADIUS } from '../src/scene/collision.ts';
 import { sampleMuseum } from '../src/data/sampleMuseum.ts';
+import { findAsset } from '../src/data/library.ts';
+import { exhibitObstacles } from '../src/exhibits/exhibitObjects.ts';
 import type { MuseumDocument } from '../src/types/museum.ts';
 
 type P = [number, number, number];
@@ -21,8 +23,15 @@ test('壁の内面から体の半径だけ手前で止まる（奥・右・手�
   near(walk(sampleMuseum, [0, 1.6, 2.2], 0, 0.06)[2], 3.9 - BODY_RADIUS);
 });
 
-test('展示台も通り抜けない', () => {
-  near(walk(sampleMuseum, [2.65, 1.6, 2.5], 0, -0.06)[2], 1.275 + BODY_RADIUS);
+test('床の作品の台座も通り抜けない（TMS 44 から台座は作品に付属）', () => {
+  const extra = exhibitObstacles(sampleMuseum, findAsset);
+  assert.equal(extra.length, 1);
+  const c = createCollider(sampleMuseum, extra);
+  const [px, , pz] = extra[0].position;
+  const half = extra[0].size[2] / 2;
+  let pos: P = [px, 1.6, 2.5];
+  for (let i = 0; i < 300; i++) pos = c.constrain(pos, [pos[0], pos[1], pos[2] - 0.06]);
+  near(pos[2], pz + half + BODY_RADIUS);
 });
 
 test('斜めにぶつかると壁に沿って滑る', () => {

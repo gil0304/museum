@@ -1,6 +1,6 @@
-// 美術館データの型。描画（scene）・画面（ui）・保存（JSON）で共有する。
-// 座標はメートル単位、Y軸が上。原点は部屋の床の中心。
-// 作品の共通データ型と座標系の正式な定義は TMS 44 で行う（ここは提出版に向けた土台）。
+// 美術館データの型。描画（scene・exhibits）・画面（ui）・保存（JSON）で共有する。
+// 座標系（TMS 44、詳細は docs/EXHIBITS.md）：単位はメートル、Y 軸が上、原点は床の中心。床の上面が y = 0。
+// グリッドは 1マス 1m、マスの境目は整数座標。回転 rotationY は Y 軸まわりのラジアンで、0 のとき作品の正面は +Z を向く。
 
 export type Vec3 = [number, number, number];
 
@@ -21,24 +21,54 @@ export interface RoomPart {
   color?: string;
 }
 
-/** 展示物の配置 */
-export interface ExhibitPlacement {
+/** 作品の置き方。wall = 壁に掛ける（平面の作品）、floor = 床に置く（台座付きの立体・スクリーンなど） */
+export type ExhibitMount = 'wall' | 'floor';
+
+/**
+ * 同梱の作品（作品ライブラリの 1 点。TMS 44）。素材は public/assets/ に置き、データからは id で参照する。
+ * 任意の URL・HTML は扱わない（JSON を読み込んでも、同梱の素材とテンプレートしか表示しない：CLAUDE.md の安全方針）。
+ */
+export interface ExhibitAsset {
   id: string;
   type: ExhibitType;
-  /** 作品の中心 */
-  position: Vec3;
-  /** Y軸まわりの回転（ラジアン） */
-  rotationY?: number;
-  /** 平面作品の幅・高さ（m） */
-  size?: [number, number];
-  /** 額縁の外寸（m）。なければ額縁なし */
+  mount: ExhibitMount;
+  title: string;
+  author: string;
+  year?: string;
+  description: string;
+  /** 素材のパス（public/ からの相対。例 assets/images/first-light.jpg）。文章・HTML作品は無し */
+  src?: string;
+  /**
+   * 大きさ（m）。wall：作品面の幅×高さ。floor：台座の幅（正方形）×台座の上の作品の高さ
+   */
+  size: [number, number];
+  /** 額縁の外寸（m）。壁の作品で額縁があるとき */
   frameSize?: [number, number];
+  /** 文章作品の本文（TMS 48） */
+  body?: string;
+  /** HTML作品の公式テンプレート名（TMS 53） */
+  template?: string;
+  /** 素材が読み込めないとき・読み込み中の色 */
+  placeholderColor: string;
+}
+
+/**
+ * 作品の配置（美術館データに保存するのはこれだけ）。
+ * - wall：position は作品の裏面が触れる**壁の表面上の点**（作品の中心の高さ）。rotationY は作品の正面の向き。
+ * - floor：position は台座の底の中心（y = 0）。rotationY は作品の正面の向き。
+ */
+export interface ExhibitPlacement {
+  id: string;
+  /** 作品ライブラリの id */
+  assetId: string;
+  /** 読みやすさのための写し（描画はライブラリの type を使う） */
+  type: ExhibitType;
+  mount: ExhibitMount;
+  position: Vec3;
+  rotationY: number;
+  /** ライブラリのタイトル・解説を上書きしたいとき */
   title?: string;
   description?: string;
-  /** 同梱素材のID（TMS 45〜53 で使う） */
-  assetId?: string;
-  /** 素材が入るまでの仮表示の色 */
-  placeholderColor?: string;
 }
 
 export interface MuseumDocument {

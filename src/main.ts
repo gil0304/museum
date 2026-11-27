@@ -13,6 +13,8 @@ import { createEditOverlay, GRID_HALF } from './scene/editOverlay';
 import { createCollider } from './scene/collision';
 import { updateTitleCamera } from './scene/titleCamera';
 import { createEditor } from './editor/editor';
+import { buildExhibits, exhibitObstacles, type ExhibitSet } from './exhibits/exhibitObjects';
+import { findAsset } from './data/library';
 import { mountShell, type EditTool, type StartKind, type ViewMode } from './ui/shell';
 
 const app = document.querySelector<HTMLDivElement>('#app');
@@ -51,8 +53,9 @@ let work: { kind: StartKind; doc: MuseumDocument } | null = null;
 let tool: EditTool = 'select';
 
 let room: RoomScene = createRoomScene(sampleMuseum, roomOptions);
+let exhibits: ExhibitSet = buildExhibits(room.scene, sampleMuseum, findAsset); // 作品（TMS 44〜）
 let shownDoc: MuseumDocument = sampleMuseum;
-let collider = createCollider(sampleMuseum); // 壁・展示台・床の当たり判定（TMS 38）
+let collider = createCollider(sampleMuseum, exhibitObstacles(sampleMuseum, findAsset)); // 壁・台座・床の当たり判定（TMS 38）
 const overlay = createEditOverlay(); // グリッドなど編集用の表示（TMS 39〜）
 room.scene.add(overlay.group);
 
@@ -69,6 +72,7 @@ const shell = mountShell(app, {
 });
 
 const viewer = createViewer(shell.viewport, room.scene, room.camera, (dt, t) => {
+  exhibits.update(dt);
   if (screen === 'title') updateTitleCamera(room.camera, t, reducedMotion.matches);
   else if (screen === 'view') controls.update(dt);
   else {
@@ -105,11 +109,13 @@ overlay.group.add(editor.group);
 /** force: 同じ美術館でも作り直す（編集でデータを書き換えたとき） */
 function show(doc: MuseumDocument, force = false) {
   if (doc === shownDoc && !force) return;
+  exhibits.dispose();
   disposeRoomScene(room);
   room = createRoomScene(doc, roomOptions);
+  exhibits = buildExhibits(room.scene, doc, findAsset);
   room.scene.add(overlay.group);
   shownDoc = doc;
-  collider = createCollider(doc);
+  collider = createCollider(doc, exhibitObstacles(doc, findAsset));
   viewer.setScene(room.scene, room.camera);
 }
 
@@ -191,6 +197,9 @@ if (import.meta.env.DEV) {
     editor,
     get room() {
       return room;
+    },
+    get exhibits() {
+      return exhibits;
     },
     get work() {
       return work;
