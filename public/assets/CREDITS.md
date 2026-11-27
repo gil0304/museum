@@ -10,3 +10,18 @@ MUSEUM に同梱しているサンプル作品の素材は、すべてこのア�
 | audio/room-tone.mp3 | Room Tone | `tools/assets/make_audio.sh`（ffmpeg の aevalsrc で正弦波の和音を合成。24 秒ループ） |
 | models/knot.glb | Knot No.3 | `tools/assets/make_glb.mjs`（three.js の形状を GLTFExporter で GLB に書き出し） |
 | samples/sample-museum.json | サンプル美術館のデータ | `tools/export-sample.mts`（src/data/sampleMuseum.ts を書き出したもの。npm run release で作り直す） |
+| ../favicon.svg | アプリのアイコン（美術館の正面） | このアプリのために手書きした SVG |
+
+## 文章
+作品の題名・解説・文章作品の本文（`src/data/library.ts`）、画面の文言は、すべてこのアプリのために書いたもの。
+
+## フォント
+Web フォントは同梱していない。端末に入っている明朝・ゴシック・等幅を使う。
+
+## 外部ライブラリ
+| ライブラリ | ライセンス | 表示 |
+|---|---|---|
+| three.js | MIT | `THIRD_PARTY_LICENSES.txt`（公開物のルート）に著作権表示とライセンス文 |
+
+開発にだけ使う道具（Vite・TypeScript・ffmpeg・Pillow・ImageMagick）は公開物に含まれない。
+

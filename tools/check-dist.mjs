@@ -68,7 +68,7 @@ if (!existsSync(join(DIST, 'index.html'))) errors.push('dist/index.html がな�
 // 同梱の作品素材（src/data/library.ts の src）とサンプル美術館の JSON が dist に入っているか（TMS 58）
 const library = readFileSync(fileURLToPath(new URL('../src/data/library.ts', import.meta.url)), 'utf8');
 const assetPaths = [...library.matchAll(/src:\s*'([^']+)'/g)].map((m) => m[1]);
-for (const p of [...assetPaths, 'samples/sample-museum.json']) {
+for (const p of [...assetPaths, 'samples/sample-museum.json', 'THIRD_PARTY_LICENSES.txt', 'assets/CREDITS.md']) {
   if (!existsSync(join(DIST, p))) errors.push(`同梱素材 ${p} が dist にない（作品が読み込めない）`);
 }
 
@@ -84,4 +84,4 @@ for (const [ext, size] of [...byExt].sort((a, b) => b[1] - a[1])) console.log(` 
 for (const w of warnings) console.log(`⚠ ${w}`);
 for (const e of errors) console.error(`✗ ${e}`);
 if (errors.length) process.exit(1);
-console.log(`✓ 公開可能（index.html あり・相対パス・上限内・秘密情報なし・同梱素材 ${assetPaths.length} 点とサンプル JSON あり）`);
+console.log(`✓ 公開可能（index.html あり・相対パス・上限内・秘密情報なし・同梱素材 ${assetPaths.length} 点・サンプル JSON・ライセンス表示あり）`);
