@@ -14,7 +14,7 @@ import { createCollider } from './scene/collision';
 import { updateTitleCamera } from './scene/titleCamera';
 import { createEditor } from './editor/editor';
 import { buildExhibits, exhibitObstacles, pickExhibit, type ExhibitSet, type ExhibitView } from './exhibits/exhibitObjects';
-import { findAsset } from './data/library';
+import { LIBRARY, findAsset } from './data/library';
 import { mountShell, type EditTool, type StartKind, type ViewMode } from './ui/shell';
 
 const app = document.querySelector<HTMLDivElement>('#app');
@@ -38,6 +38,15 @@ function museumFor(kind: StartKind): MuseumDocument {
   if (kind === 'continue') return loadAutosave() ?? sampleMuseum;
   return sampleMuseum;
 }
+
+const TYPE_LABEL_SHORT: Record<string, string> = {
+  image: '画像',
+  text: '文章',
+  video: '動画',
+  audio: '音',
+  glb: '3D',
+  'interactive-html': 'HTML',
+};
 
 // ---- 状態 ----
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -69,6 +78,8 @@ const shell = mountShell(app, {
   onTool: (next) => setTool(next),
   onDeleteSelected: () => editor.deleteSelected(),
   onClearSelection: () => editor.clearSelection(),
+  onMoveSelected: () => editor.moveSelected(),
+  onPickAsset: (id) => editor.placeAsset(id),
 });
 
 const viewer = createViewer(shell.viewport, room.scene, room.camera, (dt, t) => {
@@ -121,6 +132,7 @@ const editCamera = attachEditCamera(viewer.canvas, () => room.camera, {
 const editor = createEditor({
   canvas: viewer.canvas,
   getRoom: () => room,
+  getExhibits: () => exhibits,
   getDoc: () => work!.doc,
   onChange: () => {
     show(work!.doc, true);
@@ -131,6 +143,7 @@ const editor = createEditor({
   onMessage: (text) => shell.toast(text),
 });
 overlay.group.add(editor.group);
+shell.setLibrary(LIBRARY.map((a) => ({ id: a.id, title: a.title, kind: `${TYPE_LABEL_SHORT[a.type]} ・ ${a.mount === 'wall' ? '壁' : '床'}` })));
 
 /** force: 同じ美術館でも作り直す（編集でデータを書き換えたとき） */
 function show(doc: MuseumDocument, force = false) {
@@ -148,7 +161,7 @@ function show(doc: MuseumDocument, force = false) {
 function setTool(next: EditTool) {
   tool = next;
   shell.setTool(tool);
-  if (tool !== 'exhibit') editor.setTool(tool); // 作品の配置は TMS 47
+  editor.setTool(tool);
 }
 
 function resetEditCamera(doc: MuseumDocument) {
@@ -204,7 +217,7 @@ function route() {
     if (fresh || prev !== 'edit') resetEditCamera(doc);
     editCamera.setEnabled(true);
     overlay.setVisible(true);
-    shell.setAvailableTools(['select', 'floor', 'wall', 'delete']); // 作品の配置は TMS 47
+    shell.setAvailableTools(['select', 'floor', 'wall', 'exhibit', 'delete']);
     setTool(tool);
   }
   shell.showViewer({ title: doc.title, mode, canEdit: !editUnavailable.matches, focus: fromTitle });

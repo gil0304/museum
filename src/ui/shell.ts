@@ -28,6 +28,18 @@ export interface ShellOptions {
   onDeleteSelected(): void;
   /** 選択を解除する（情報パネルの閉じる・Esc） */
   onClearSelection(): void;
+  /** 選択中の作品を動かす（情報パネルの「移動」・M キー。TMS 47） */
+  onMoveSelected(): void;
+  /** 作品ライブラリから作品を選んだ（作品の道具。TMS 47） */
+  onPickAsset(assetId: string): void;
+}
+
+/** 作品ライブラリの一覧に出す 1 点 */
+export interface LibraryItem {
+  id: string;
+  title: string;
+  /** 例：「画像 ・ 壁」 */
+  kind: string;
 }
 
 /** 鑑賞中の作品情報パネル（TMS 46） */
@@ -48,6 +60,8 @@ export interface InspectorInfo {
   label: string;
   /** 例：「x -5〜5, z -4〜4」 */
   where: string;
+  /** 作品なら「移動」ボタンを出す */
+  movable: boolean;
 }
 
 export interface Shell {
@@ -72,6 +86,8 @@ export interface Shell {
   showInspector(info: InspectorInfo | null): void;
   /** 右下の作品情報パネル（鑑賞中）。null で隠す（TMS 46） */
   showExhibitInfo(info: ExhibitInfo | null): void;
+  /** 作品ライブラリの一覧（作品の道具を選んでいる間、右上に出す） */
+  setLibrary(items: readonly LibraryItem[]): void;
 }
 
 const TOOLS: { tool: EditTool; label: string; key: string; icon: string }[] = [
@@ -133,9 +149,16 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
       <h2 class="hud__inspector-label"></h2>
       <p class="m-muted hud__inspector-where"></p>
       <div class="hud__inspector-actions">
+        <button type="button" class="m-btn m-btn--primary m-btn--sm hud__move" hidden>移動（M）</button>
         <button type="button" class="m-btn m-btn--danger m-btn--sm hud__delete">削除（Delete）</button>
         <button type="button" class="m-btn m-btn--secondary m-btn--sm hud__deselect">選択を解除（Esc）</button>
       </div>
+    </aside>
+    <aside class="m-panel m-panel--dark hud__library" aria-labelledby="hud-library-title" hidden>
+      <div class="m-eyebrow">Library</div>
+      <h2 id="hud-library-title">作品ライブラリ</h2>
+      <p class="m-muted">選んでから、壁または床をクリックして置く。</p>
+      <ul class="hud__library-list"></ul>
     </aside>
     <aside class="m-panel hud__info" aria-labelledby="hud-info-title" hidden>
       <div class="m-eyebrow hud__info-eyebrow"></div>
@@ -166,6 +189,14 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
     if (e.code === 'Escape' && !info.hidden) info.hidden = true;
   });
   q<HTMLButtonElement>('.hud__delete').addEventListener('click', () => opts.onDeleteSelected());
+  q<HTMLButtonElement>('.hud__move').addEventListener('click', () => opts.onMoveSelected());
+  const library = q<HTMLElement>('.hud__library');
+  library.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-asset]');
+    if (!btn) return;
+    library.querySelectorAll('[data-asset]').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+    opts.onPickAsset(btn.dataset.asset!);
+  });
   q<HTMLButtonElement>('.hud__deselect').addEventListener('click', () => opts.onClearSelection());
   const continueBtn = q<HTMLButtonElement>('[data-start="continue"]');
   const primaryBtn = q<HTMLButtonElement>('[data-start="sample"]');
@@ -199,6 +230,7 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
       return;
     }
     if (e.code === 'Escape') return opts.onClearSelection();
+    if (e.code === 'KeyM' && !inspector.hidden && !q<HTMLButtonElement>('.hud__move').hidden) return opts.onMoveSelected();
     const t = TOOLS.find((x) => `Key${x.key}` === e.code);
     const btn = t && palette.querySelector<HTMLButtonElement>(`[data-tool="${t.tool}"]`);
     if (t && btn && !btn.disabled) opts.onTool(t.tool);
@@ -226,6 +258,8 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
       if (focus) q<HTMLButtonElement>('.hud__home').focus({ preventScroll: true });
     },
     setTool(tool) {
+      library.hidden = tool !== 'exhibit';
+      if (tool !== 'exhibit') library.querySelectorAll('[data-asset]').forEach((b) => b.setAttribute('aria-pressed', 'false'));
       palette.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((b) => {
         b.setAttribute('aria-pressed', String(b.dataset.tool === tool));
       });
@@ -246,6 +280,26 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
       if (!info) return;
       q<HTMLElement>('.hud__inspector-label').textContent = info.label;
       q<HTMLElement>('.hud__inspector-where').textContent = info.where;
+      q<HTMLButtonElement>('.hud__move').hidden = !info.movable;
+    },
+    setLibrary(items) {
+      const list = q<HTMLElement>('.hud__library-list');
+      list.replaceChildren(
+        ...items.map((it) => {
+          const li = document.createElement('li');
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.dataset.asset = it.id;
+          b.setAttribute('aria-pressed', 'false');
+          const t = document.createElement('span');
+          t.textContent = it.title;
+          const k = document.createElement('small');
+          k.textContent = it.kind;
+          b.append(t, k);
+          li.append(b);
+          return li;
+        }),
+      );
     },
     showExhibitInfo(next) {
       info.hidden = !next;

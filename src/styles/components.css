@@ -33,8 +33,8 @@
 .m-btn--danger { background: var(--c-danger); color: #fff; border-color: var(--c-danger); }
 .m-btn--icon { width: 40px; padding: 0; }
 /* 暗い面の上 */
-.m-on-dark .m-btn--primary, .m-topbar .m-btn--primary { background: var(--c-on-dark); color: var(--c-ink-900); border-color: var(--c-on-dark); }
-.m-on-dark .m-btn--secondary, .m-topbar .m-btn--secondary { color: var(--c-on-dark); }
+.m-on-dark .m-btn--primary, .m-topbar .m-btn--primary, .m-panel--dark .m-btn--primary { background: var(--c-on-dark); color: var(--c-ink-900); border-color: var(--c-on-dark); }
+.m-on-dark .m-btn--secondary, .m-topbar .m-btn--secondary, .m-panel--dark .m-btn--secondary { color: var(--c-on-dark); }
 .m-on-dark .m-btn--secondary:hover:not(:disabled), .m-topbar .m-btn--secondary:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); }
 
 /* ---- 鑑賞 / 編集 の切替（セグメント）---- */

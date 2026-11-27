@@ -48,6 +48,18 @@ body { margin: 0; background: var(--c-ink-900); color: var(--c-on-dark); font-fa
 .hud[data-mode='view'] .hud__inspector { display: none; }
 .hud__inspector-actions { display: flex; flex-wrap: wrap; gap: var(--s-2); }
 .hud__inspector .m-btn--secondary { color: var(--c-on-dark); }
+/* 作品ライブラリ（編集・作品の道具。TMS 47） */
+.hud__library { position: absolute; z-index: var(--z-panel); top: calc(var(--topbar-h) + var(--s-4)); right: var(--s-4); width: 300px; max-height: calc(100% - var(--topbar-h) - 80px); overflow: auto; }
+.hud[data-mode='view'] .hud__library { display: none; }
+.hud__library h2 { font-size: var(--fs-xl) !important; }
+.hud__library-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-1); }
+.hud__library-list button { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: var(--s-2); padding: var(--s-2) var(--s-3); border: 1px solid var(--c-ink-700); border-radius: var(--r-1); background: transparent; color: var(--c-on-dark); font: 600 var(--fs-sm) / 1.4 var(--font-ui); text-align: left; cursor: pointer; }
+.hud__library-list button small { color: var(--c-on-dark-muted); font-weight: 400; white-space: nowrap; }
+.hud__library-list button:hover { background: var(--c-ink-700); }
+.hud__library-list button[aria-pressed='true'] { background: var(--c-accent); color: var(--c-ink-900); border-color: var(--c-accent); }
+.hud__library-list button[aria-pressed='true'] small { color: var(--c-ink-800); }
+/* 作品ライブラリを出している間は、選択の情報パネルを下にずらす */
+.hud:has(.hud__library:not([hidden])) .hud__inspector { top: auto; bottom: var(--s-5); }
 /* 作品情報パネル（鑑賞中・右下。TMS 46） */
 .hud__info { position: absolute; z-index: var(--z-panel); right: var(--s-5); bottom: var(--s-5); width: min(340px, calc(100% - 32px)); max-height: calc(100% - var(--topbar-h) - 40px); overflow: auto; }
 .hud[data-mode='edit'] .hud__info { display: none; }
