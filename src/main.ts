@@ -12,6 +12,7 @@ import { attachEditCamera } from './scene/editCamera';
 import { createEditOverlay, GRID_HALF } from './scene/editOverlay';
 import { createCollider } from './scene/collision';
 import { updateTitleCamera } from './scene/titleCamera';
+import { createEditor } from './editor/editor';
 import { mountShell, type EditTool, type StartKind, type ViewMode } from './ui/shell';
 
 const app = document.querySelector<HTMLDivElement>('#app');
@@ -63,6 +64,8 @@ const shell = mountShell(app, {
   // 鑑賞⇔編集は履歴に積まない（「戻る」でタイトルへ戻れるように）
   onModeChange: (mode) => work && location.replace(`#/${mode}/${work.kind}`),
   onTool: (next) => setTool(next),
+  onDeleteSelected: () => editor.deleteSelected(),
+  onClearSelection: () => editor.clearSelection(),
 });
 
 const viewer = createViewer(shell.viewport, room.scene, room.camera, (dt, t) => {
@@ -80,10 +83,28 @@ const controls = attachFirstPersonControls(viewer.canvas, () => room.camera, {
 const editCamera = attachEditCamera(viewer.canvas, () => room.camera, {
   panLimit: GRID_HALF,
   reducedMotion: () => reducedMotion.matches,
+  onTap: (x, y) => editor.tap(x, y),
+  onHover: (x, y) => editor.hover(x, y),
+  onLeave: () => editor.leave(),
 });
+// 建築の編集（TMS 40〜43）：作業中の美術館を書き換え、部屋を作り直す
+const editor = createEditor({
+  canvas: viewer.canvas,
+  getRoom: () => room,
+  getDoc: () => work!.doc,
+  onChange: () => {
+    show(work!.doc, true);
+    editor.afterRebuild();
+  },
+  onSelect: (info) => shell.showInspector(info),
+  onHint: (text) => shell.setEditHint(text),
+  onMessage: (text) => shell.toast(text),
+});
+overlay.group.add(editor.group);
 
-function show(doc: MuseumDocument) {
-  if (doc === shownDoc) return;
+/** force: 同じ美術館でも作り直す（編集でデータを書き換えたとき） */
+function show(doc: MuseumDocument, force = false) {
+  if (doc === shownDoc && !force) return;
   disposeRoomScene(room);
   room = createRoomScene(doc, roomOptions);
   room.scene.add(overlay.group);
@@ -95,7 +116,7 @@ function show(doc: MuseumDocument) {
 function setTool(next: EditTool) {
   tool = next;
   shell.setTool(tool);
-  shell.setEditHint('');
+  if (tool !== 'exhibit') editor.setTool(tool); // 作品の配置は TMS 47
 }
 
 function resetEditCamera(doc: MuseumDocument) {
@@ -114,6 +135,7 @@ function route() {
     editCamera.setEnabled(false);
     overlay.setVisible(false);
     overlay.updateCutaway(room, room.camera, false);
+    editor.clearSelection();
     shell.showTitle({ canContinue: loadAutosave() !== null, focus: fromViewer });
     return;
   }
@@ -138,6 +160,7 @@ function route() {
   const prev = screen;
   screen = mode;
   if (mode === 'view') {
+    editor.clearSelection();
     editCamera.setEnabled(false);
     overlay.setVisible(false);
     overlay.updateCutaway(room, room.camera, false);
@@ -148,7 +171,7 @@ function route() {
     if (fresh || prev !== 'edit') resetEditCamera(doc);
     editCamera.setEnabled(true);
     overlay.setVisible(true);
-    shell.setAvailableTools(['select']); // 床・壁・削除は TMS 40〜42 で使えるようにする
+    shell.setAvailableTools(['select', 'floor', 'wall', 'delete']); // 作品の配置は TMS 47
     setTool(tool);
   }
   shell.showViewer({ title: doc.title, mode, canEdit: !editUnavailable.matches, focus: fromTitle });
@@ -165,6 +188,7 @@ if (import.meta.env.DEV) {
   (window as unknown as { __museum: unknown }).__museum = {
     controls,
     editCamera,
+    editor,
     get room() {
       return room;
     },

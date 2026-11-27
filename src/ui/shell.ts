@@ -24,6 +24,18 @@ export interface ShellOptions {
   onModeChange(mode: ViewMode): void;
   /** ツールパレットで道具が選ばれた */
   onTool(tool: EditTool): void;
+  /** 選択中のパーツを消す（情報パネルの削除ボタン・Delete / Backspace キー。TMS 42） */
+  onDeleteSelected(): void;
+  /** 選択を解除する（情報パネルの閉じる・Esc） */
+  onClearSelection(): void;
+}
+
+/** 情報パネルに出す選択中のパーツ（TMS 42） */
+export interface InspectorInfo {
+  /** 例：「壁 10m」 */
+  label: string;
+  /** 例：「x -5〜5, z -4〜4」 */
+  where: string;
 }
 
 export interface Shell {
@@ -44,6 +56,8 @@ export interface Shell {
   setEditHint(text: string): void;
   /** 画面下の短い通知（数秒で消える） */
   toast(message: string): void;
+  /** 右上の情報パネル（選択中のパーツ）。null で隠す */
+  showInspector(info: InspectorInfo | null): void;
 }
 
 const TOOLS: { tool: EditTool; label: string; key: string; icon: string }[] = [
@@ -100,6 +114,15 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
       ${padButton('right', '右へ', 'M9 6l6 6-6 6')}
       ${padButton('back', '後ろへ', 'M6 9l6 6 6-6')}
     </div>
+    <aside class="m-panel m-panel--dark hud__inspector" aria-label="選択中のパーツ" hidden>
+      <div class="m-eyebrow">Selected</div>
+      <h2 class="hud__inspector-label"></h2>
+      <p class="m-muted hud__inspector-where"></p>
+      <div class="hud__inspector-actions">
+        <button type="button" class="m-btn m-btn--danger m-btn--sm hud__delete">削除（Delete）</button>
+        <button type="button" class="m-btn m-btn--secondary m-btn--sm hud__deselect">選択を解除（Esc）</button>
+      </div>
+    </aside>
     <div class="m-toast hud__toast" role="status" aria-live="polite" hidden></div>
   </div>
 </div>`;
@@ -113,6 +136,9 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
   const palette = q<HTMLElement>('.hud__palette');
   const editTool = q<HTMLElement>('.hud__edit-tool');
   const toastEl = q<HTMLElement>('.hud__toast');
+  const inspector = q<HTMLElement>('.hud__inspector');
+  q<HTMLButtonElement>('.hud__delete').addEventListener('click', () => opts.onDeleteSelected());
+  q<HTMLButtonElement>('.hud__deselect').addEventListener('click', () => opts.onClearSelection());
   const continueBtn = q<HTMLButtonElement>('[data-start="continue"]');
   const primaryBtn = q<HTMLButtonElement>('[data-start="sample"]');
   let mode: ViewMode = 'view';
@@ -137,6 +163,14 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
     if (hud.hidden || mode !== 'edit' || e.metaKey || e.ctrlKey || e.altKey) return;
     const el = e.target as HTMLElement;
     if (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+    if (e.code === 'Delete' || e.code === 'Backspace') {
+      if (!inspector.hidden) {
+        e.preventDefault();
+        opts.onDeleteSelected();
+      }
+      return;
+    }
+    if (e.code === 'Escape') return opts.onClearSelection();
     const t = TOOLS.find((x) => `Key${x.key}` === e.code);
     const btn = t && palette.querySelector<HTMLButtonElement>(`[data-tool="${t.tool}"]`);
     if (t && btn && !btn.disabled) opts.onTool(t.tool);
@@ -178,6 +212,12 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
     },
     setEditHint(text) {
       editTool.textContent = text ? `${text} ・ ` : '';
+    },
+    showInspector(info) {
+      inspector.hidden = !info;
+      if (!info) return;
+      q<HTMLElement>('.hud__inspector-label').textContent = info.label;
+      q<HTMLElement>('.hud__inspector-where').textContent = info.where;
     },
     toast(message) {
       toastEl.textContent = message;
