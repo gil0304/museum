@@ -177,3 +177,10 @@ body { margin: 0; background: var(--c-ink-900); color: var(--c-on-dark); font-fa
 .no-webgl .m-eyebrow { color: var(--c-accent); }
 .no-webgl .m-hero { font-size: clamp(26px, 4vw, 40px); margin: var(--s-3) 0 var(--s-4); }
 .no-webgl p { line-height: var(--lh-body); color: var(--c-on-dark-muted); }
+
+/* ---- この作品について（TMS 70）---- */
+.title-screen__about { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.about__lead { margin: 0 0 var(--s-5); font-size: var(--fs-md); line-height: var(--lh-body); }
+.about ul { margin: 0; padding-left: 1.2em; font-size: var(--fs-sm); line-height: 1.8; }
+.about li + li { margin-top: var(--s-2); }
+.about a { color: var(--c-accent-text); }

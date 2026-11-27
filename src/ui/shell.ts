@@ -157,7 +157,7 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
         <button type="button" class="m-btn m-btn--secondary m-btn--lg" data-start="empty">空の部屋から作る</button>
       </div>
       <button type="button" class="m-btn m-btn--ghost m-btn--sm title-screen__continue" data-start="continue" hidden>続きから（前回の編集）</button>
-      <p class="title-screen__note">PC の Google Chrome 推奨 ・ スマホは鑑賞のみ</p>
+      <p class="title-screen__note">PC の Google Chrome 推奨 ・ スマホは鑑賞のみ ・ <button type="button" class="title-screen__about">この作品について</button></p>
     </div>
   </section>
   <div class="hud" hidden data-mode="view">
@@ -241,6 +241,48 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
     </div>
     <div class="m-toast hud__toast" role="status" aria-live="polite" hidden></div>
   </div>
+  <dialog class="help about" aria-labelledby="about-title">
+    <div class="help__head">
+      <div><div class="m-eyebrow">About</div><h2 id="about-title">MUSEUM ── 自分の世界を、美術館にする。</h2></div>
+      <form method="dialog"><button class="m-btn m-btn--secondary m-btn--sm" value="close">閉じる（Esc）</button></form>
+    </div>
+    <p class="about__lead">床と壁をマス目に置いて自分の展示室を建て、絵・文章・映像・音・3D、そして<strong>その場で触れる HTML 作品</strong>を飾り、ブラウザの中でその部屋を歩いて鑑賞できる 3D 美術館です。インストールもログインも要りません。</p>
+    <div class="help__grid">
+      <section>
+        <h3>特徴</h3>
+        <ul>
+          <li><strong>空間から作れる</strong>：用意された部屋に投稿するのではなく、床・壁を置いて部屋の形から自分で決める。鑑賞に切り替えると、その部屋を一人称で歩ける（壁は通り抜けない）。</li>
+          <li><strong>6 種類の作品</strong>：画像・文章・動画・音・3D（GLB）・HTML。動画と音はクリックで再生、3D は近くで回して見られる。</li>
+          <li><strong>3D の壁の上で HTML を操作</strong>：HTML 作品のボタンやスライダーを、3D 空間の中でそのまま押せる。スライダーで展示室の明るさが変わる。</li>
+          <li><strong>そのまま残る・渡せる</strong>：編集はブラウザに自動保存。JSON で書き出し・読み込みできる。</li>
+        </ul>
+      </section>
+      <section>
+        <h3>技術</h3>
+        <ul>
+          <li><strong>HTML in Canvas</strong>（Chrome 157 で正式に使えるようになった新しい仕組み）で、本物の DOM を WebGL のテクスチャとして描き、カメラの動きに合わせて「要素 → 画面」の変換を毎フレーム更新して、3D の中でクリック・ドラッグを DOM に届けている。</li>
+          <li>対応していないブラウザでは、同じ HTML を通常の画面のパネルで開いて操作できる（真っ白にしない）。</li>
+          <li>Three.js・TypeScript・Vite。サーバーを持たない静的サイトで、どこでも同じ URL で開ける。</li>
+          <li>安全のため、HTML 作品はアプリに同梱した公式テンプレートだけを動かし、読み込む JSON からは任意の HTML・URL を受け付けない。</li>
+        </ul>
+      </section>
+      <section>
+        <h3>対応環境</h3>
+        <ul>
+          <li>おすすめ：PC の Google Chrome 157 以降（建てる・飾る・HTML 作品を 3D の中で操作）。</li>
+          <li>スマホ：鑑賞のみ（指で見回し、右下のボタンで歩く）。</li>
+          <li>ほかのブラウザ：鑑賞と、HTML 作品のパネルでの操作。</li>
+        </ul>
+      </section>
+      <section>
+        <h3>素材とライセンス</h3>
+        <ul>
+          <li>サンプル作品（画像・動画・音・3D・文章）はすべてこのアプリのために新しく作ったもの（<a href="assets/CREDITS.md" target="_blank" rel="noopener">素材の出どころ</a>）。</li>
+          <li>three.js（MIT License）を使用（<a href="THIRD_PARTY_LICENSES.txt" target="_blank" rel="noopener">ライセンス表示</a>）。</li>
+        </ul>
+      </section>
+    </div>
+  </dialog>
   <dialog class="help" aria-labelledby="help-title">
     <div class="help__head">
       <div><div class="m-eyebrow">Help</div><h2 id="help-title">操作のヘルプ</h2></div>
@@ -338,11 +380,14 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
   });
 
   // ---- 操作のヘルプと初回の案内（TMS 62）----
-  const help = q<HTMLDialogElement>('.help');
+  const help = q<HTMLDialogElement>('.help:not(.about)');
   const openHelp = () => {
     if (!help.open) help.showModal();
   };
   q<HTMLButtonElement>('.hud__help-btn').addEventListener('click', openHelp);
+  // この作品について（TMS 70。応募フォームに技術説明の欄が無いので、作品ページの中で伝える）
+  const about = q<HTMLDialogElement>('.about');
+  q<HTMLButtonElement>('.title-screen__about').addEventListener('click', () => about.showModal());
   window.addEventListener('keydown', (e) => {
     const el = e.target as HTMLElement;
     const isHelpKey = e.key === '?' || (e.code === 'Slash' && e.shiftKey); // 配列の違い（JIS・US）に関係なく
