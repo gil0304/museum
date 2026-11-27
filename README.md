@@ -88,6 +88,17 @@ npm run release      # check:layers + test + build + verify:dist（公開前は�
 技術: TypeScript / Vite / Three.js。サーバーを持たない**静的サイト**として動く。
 「3Dの描画（scene）」「画面（ui）」「作品データ（data）」を分け、`main.ts` でつなぐ。フォルダの責務と依存ルールは [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 
+### 静的ビルドのローカル検証（TMS 60、2026-11-27）
+`npm run release` で作った `dist/` を、Vite を使わない素の静的サーバー（`python3 -m http.server`）でサブパス `/museum/` の下に置き、Google Chrome で確認した（Claude in Chrome による自動確認）。
+| 確認 | 結果 |
+|---|---|
+| ページと全ファイルの読み込み（JS・CSS・画像 2・GLB・動画・favicon の 9 件） | ✅ すべて 200（動画は 206）、失敗 0 件、コンソールのエラー 0 件 |
+| サブパスでの相対パス（`/museum/` の下で素材が読める） | ✅ |
+| 開発時だけの読み取り口（`window.__museum`）が本番に無い | ✅ |
+| HTML 作品を 3D の中で操作（拍手 ×2） | ✅ |
+| 編集で壁を置く → ブラウザに自動保存 | ✅ |
+| 人間の実機確認・公開先での確認 | 未実施（TMS 65・69） |
+
 ### 共有用のデモ URL（TMS 59）
 公開先の URL の後ろに `#/view/sample` を付けると、タイトルを飛ばしてサンプル美術館に直接入れる（例 `https://<公開先>/#/view/sample`）。空の部屋は `#/view/empty`。アプリ内では「メニュー → 共有用の URL をコピー」。編集した美術館はその端末のブラウザにだけ保存されるので、人に渡すときは JSON で書き出す。
 
