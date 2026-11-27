@@ -117,7 +117,7 @@ body { margin: 0; background: var(--c-ink-900); color: var(--c-on-dark); font-fa
 }
 
 /* ---- HTML作品の公式テンプレート（TMS 53。canvas の中で 3D の壁に描かれる / 代替表示ではダイアログの中）---- */
-.hic-panel { position: relative; width: 360px; padding: 22px 26px 18px; box-sizing: border-box; background: var(--c-paper-2); color: #1b1a17; font-family: var(--font-display); }
+.hic-panel { touch-action: manipulation; position: relative; width: 360px; padding: 22px 26px 18px; box-sizing: border-box; background: var(--c-paper-2); color: #1b1a17; font-family: var(--font-display); }
 .hic-eyebrow { font: 600 11px/1 var(--font-mono); letter-spacing: 0.18em; color: var(--c-accent-text); }
 .hic-title { margin: 10px 0 4px; font: 400 26px/1.3 var(--font-display); }
 .hic-count { font: 700 48px/1.1 var(--font-ui); margin: 6px 0 14px; font-variant-numeric: tabular-nums; }

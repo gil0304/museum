@@ -89,6 +89,15 @@ const supportsHtmlInCanvas =
 | `?fallback=1`：案内表示 → クリックでダイアログ → Enter×2 で 2 → Esc で閉じ、案内が「拍手 2 回」に | ✅ |
 | 人間の実機確認・本物の非対応ブラウザ（Safari / Firefox） | 未実施（TMS 66） |
 
+### TMS 54：HTML 作品の操作と 3D の視点操作の競合
+| 競合 | 対処 | 確認 |
+|---|---|---|
+| パネルの中から始まったドラッグ（スライダー）で視点が回る | 一人称・編集・近くで見る視点は `e.target !== canvas` のポインター操作を無視 | ✅ スライダーをドラッグしても視点は動かない |
+| パネルのクリックで作品情報が開く・視点の「クリック」になる | 同上（canvas 本体で押した時だけクリック扱い） | ✅ |
+| スライダーにフォーカスがある時の矢印・WASD で歩く | 入力欄（INPUT・TEXTAREA・SELECT）にフォーカスがある間は歩く・回るキーを受け取らない | ✅ 右矢印×5 でスライダー 50→55、W×10 でも位置そのまま |
+| 代替表示のダイアログを操作中に、後ろの 3D が歩く | `dialog[open]` がある間は歩かない | ✅ W×10 でも位置そのまま |
+| 編集・タイトルで Tab キーが見えないボタンに入る／クリックがボタンに届く | 鑑賞以外ではパネルを `inert` にし、クリック判定（element geometry）も外す | ✅ 編集では inert・作品として選択、鑑賞に戻すと操作可 |
+
 ## 検証記録（自動チェック）
 - 実行環境: macOS、Google Chrome 157.0.8103.79（`--headless=new`、127.0.0.1 から配信したページ、安全なコンテキスト）
 - 存在を確認したもの: `drawElementImage`、`requestPaint`、`onpaint`、`captureElementImage`、`updateElementGeometry`、`clearElementGeometry`、`getElementTransform`、`getElementImageDefaultSize`、`onelementgeometryupdate`、`texElementSubImage2D`（WebGL1/2）、`GPUQueue.drawElementImageToTexture`、`CanvasPaintEvent`、`ElementImage`

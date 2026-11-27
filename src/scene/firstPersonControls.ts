@@ -118,6 +118,8 @@ export function attachFirstPersonControls(
     el instanceof HTMLElement && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
   window.addEventListener('keydown', (e) => {
     if (!enabled || e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return;
+    // HTML 作品の代替表示など、モーダルのダイアログを操作している間は歩かない（TMS 54）
+    if (document.querySelector('dialog[open]')) return;
     if (e.code in MOVE_KEYS || TURN_KEYS.has(e.code) || RUN_KEYS.has(e.code)) {
       keys.add(e.code);
       if (e.code.startsWith('Arrow')) e.preventDefault(); // 矢印キーでページやボタン群がスクロールしないように

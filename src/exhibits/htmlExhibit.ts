@@ -59,7 +59,11 @@ export function initHtmlExhibits(canvas: HTMLCanvasElement, renderer: THREE.WebG
 export function setHtmlInteractive(interactive: boolean) {
   if (!host) return;
   host.interactive = interactive;
-  if (!interactive && host.mode === 'html-in-canvas') for (const item of host.items) host.canvas.clearElementGeometry(item.panel);
+  for (const item of host.items) {
+    // 鑑賞以外では Tab キーでも見えないボタンに入らないようにする（TMS 54）
+    item.panel.inert = !interactive;
+    if (!interactive && host.mode === 'html-in-canvas') host.canvas.clearElementGeometry(item.panel);
+  }
 }
 
 /** 代替表示のダイアログ（1 つを使い回す） */
@@ -186,6 +190,7 @@ export function buildHtmlExhibit(asset: ExhibitAsset, view: ExhibitView, setPiec
       },
     };
     h.items.add(item);
+    panel.inert = !h.interactive;
     view.status = 'loading';
     h.canvas.requestPaint();
 
