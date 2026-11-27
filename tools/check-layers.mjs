@@ -39,9 +39,12 @@ for (const file of walk(SRC)) {
   checked++;
   const text = readFileSync(file, 'utf8');
   // import ... from '...'; / import '...'; / export ... from '...'; / import('...')
-  const specs = [...text.matchAll(/(?:import|export)\s[^'"]*?from\s*['"]([^'"]+)['"]|import\s*\(?\s*['"]([^'"]+)['"]/g)].map(
-    (m) => m[1] ?? m[2],
-  );
+  // 文の先頭（行頭）の import / export だけを見る（文字列 'import' などを誤検出しないように。TMS 55 で発生）
+  const specs = [
+    ...text.matchAll(
+      /^\s*(?:import|export)\s[^'";]*?from\s*['"]([^'"]+)['"]|^\s*import\s+['"]([^'"]+)['"]|\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/gm,
+    ),
+  ].map((m) => m[1] ?? m[2] ?? m[3]);
   for (const spec of specs) {
     let target;
     if (spec.startsWith('.')) {

@@ -137,3 +137,14 @@ body { margin: 0; background: var(--c-ink-900); color: var(--c-on-dark); font-fa
 .hic-dialog__bar { display: flex; justify-content: space-between; align-items: center; gap: var(--s-4); padding: var(--s-2) var(--s-2) var(--s-2) var(--s-4); background: var(--c-ink-800); color: var(--c-on-dark); font: 600 12px var(--font-ui); }
 .hic-dialog__bar button { font: 600 12px var(--font-ui); padding: 6px 10px; border: 1px solid var(--c-ink-700); border-radius: var(--r-1); background: transparent; color: var(--c-on-dark); cursor: pointer; }
 .hic-dialog .hic-panel { max-width: 100%; }
+
+/* ---- 上部バーのメニューと保存状態（TMS 55〜64）---- */
+.hud__save { font-size: var(--fs-xs); color: var(--c-on-dark-muted); white-space: nowrap; }
+.hud[data-mode='view'] .hud__save { display: none; }
+.hud__menu-wrap { position: relative; }
+.hud__menu { position: absolute; top: calc(100% + var(--s-2)); right: 0; z-index: var(--z-dialog); min-width: 220px; padding: var(--s-2); display: grid; gap: 2px; }
+.hud__menu button { padding: var(--s-2) var(--s-3); border: 0; border-radius: var(--r-1); background: transparent; color: var(--c-on-dark); font: 600 var(--fs-sm) / 1.4 var(--font-ui); text-align: left; cursor: pointer; }
+.hud__menu button:hover, .hud__menu button:focus-visible { background: var(--c-ink-700); }
+@media (max-width: 700px) {
+  .hud__title { display: none; }
+}

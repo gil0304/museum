@@ -18,22 +18,42 @@ import { createEditor } from './editor/editor';
 import { buildExhibits, exhibitObstacles, pickExhibit, type ExhibitSet, type ExhibitView } from './exhibits/exhibitObjects';
 import { initHtmlExhibits, setHtmlInteractive } from './exhibits/htmlExhibit';
 import { LIBRARY, findAsset } from './data/library';
+import { exportFileName, parseMuseum, serializeMuseum } from './data/museumJson';
 import { mountShell, type EditTool, type StartKind, type ViewMode } from './ui/shell';
 
 const app = document.querySelector<HTMLDivElement>('#app');
 if (!app) throw new Error('app not found');
 
-// ---- 前回の編集（保存処理は TMS 57 で実装。ここでは読むだけ）----
+// ---- ブラウザ内の保存（TMS 57）----
+// 編集するたびに、作業中の美術館を localStorage に保存する（JSON の書き出しと同じ形）。タイトルの「続きから」で開く。
 const AUTOSAVE_KEY = 'museum.autosave.v1';
 function loadAutosave(): MuseumDocument | null {
   try {
     const raw = localStorage.getItem(AUTOSAVE_KEY);
     if (!raw) return null;
-    const doc = JSON.parse(raw) as MuseumDocument;
-    return doc && doc.schemaVersion === 1 && Array.isArray(doc.objects) && Array.isArray(doc.exhibits) ? doc : null;
+    const r = parseMuseum(raw); // 読み込みと同じ検査（壊れていれば「続きから」を出さない）
+    return r.ok ? r.doc : null;
   } catch {
-    return null; // 保存領域が使えない・壊れている場合は「続きから」を出さない
+    return null; // 保存領域が使えない（プライベートブラウズ・無効化など）
   }
+}
+function saveAutosave(doc: MuseumDocument): boolean {
+  try {
+    localStorage.setItem(AUTOSAVE_KEY, serializeMuseum(doc));
+    return true;
+  } catch {
+    return false; // 容量超過・保存領域が使えない
+  }
+}
+let saveTimer = 0;
+/** 編集の直後に何度も書かないよう、少し待ってから保存する */
+function scheduleSave() {
+  shell.setSaveStatus('保存中…');
+  clearTimeout(saveTimer);
+  saveTimer = window.setTimeout(() => {
+    if (!work) return;
+    shell.setSaveStatus(saveAutosave(work.doc) ? 'ブラウザに保存済み' : '保存できませんでした（JSON で書き出してください）');
+  }, 400);
 }
 
 function museumFor(kind: StartKind): MuseumDocument {
@@ -86,7 +106,10 @@ const shell = mountShell(app, {
   onPickAsset: (id) => editor.placeAsset(id),
   onInfoClosed: () => endInspect(),
   onInspectZoom: (delta) => inspect.zoom(delta),
+  onMenu: (action) => runMenu(action),
+  onImportFile: (file) => void importFile(file),
 });
+shell.setMenuItems(['export', 'import']);
 
 const viewer = createViewer(shell.viewport, room.scene, room.camera, (dt, t) => {
   if (screen === 'title') updateTitleCamera(room.camera, t, reducedMotion.matches);
@@ -182,6 +205,7 @@ const editor = createEditor({
   onChange: () => {
     show(work!.doc, true);
     editor.afterRebuild();
+    scheduleSave(); // TMS 57
   },
   onSelect: (info) => shell.showInspector(info),
   onHint: (text) => shell.setEditHint(text),
@@ -207,6 +231,37 @@ function show(doc: MuseumDocument, force = false) {
   shownDoc = doc;
   collider = createCollider(doc, exhibitObstacles(doc, findAsset));
   viewer.setScene(room.scene, room.camera);
+}
+
+// ---- メニュー：JSON の書き出し・読み込み（TMS 55・56）----
+function runMenu(action: string) {
+  if (action === 'export' && work) exportJson(work.doc);
+}
+
+/** 作業中の美術館を JSON ファイルとして保存させる（ブラウザのダウンロード） */
+function exportJson(doc: MuseumDocument) {
+  const url = URL.createObjectURL(new Blob([serializeMuseum(doc)], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = exportFileName(doc);
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  shell.toast(`「${a.download}」を書き出しました`);
+}
+
+/** 選ばれた JSON ファイルを確かめて開く。開いたものはブラウザに保存し、「続きから」として扱う */
+async function importFile(file: File) {
+  if (file.size > 1_000_000) return shell.toast('ファイルが大きすぎます（1MB まで）');
+  const r = parseMuseum(await file.text());
+  if (!r.ok) return shell.toast(`読み込めませんでした：${r.error}`);
+  saveAutosave(r.doc);
+  work = { kind: 'continue', doc: r.doc };
+  const mode = screen === 'edit' ? 'edit' : 'view';
+  const next = `#/${mode}/continue`;
+  forceFresh = true;
+  if (location.hash === next) route();
+  else location.replace(next);
+  shell.toast(r.warnings.length ? `「${r.doc.title}」を開きました（${r.warnings.length} 件は飛ばしました：${r.warnings[0]}）` : `「${r.doc.title}」を開きました`);
 }
 
 function setTool(next: EditTool) {
@@ -249,8 +304,11 @@ function route() {
     return;
   }
 
-  const fresh = !work || work.kind !== kind;
-  if (fresh) work = { kind, doc: structuredClone(museumFor(kind)) };
+  // 読み込んだ直後（forceFresh）は、作業中の美術館はそのままで視点などを初めから
+  const fresh = forceFresh || !work || work.kind !== kind;
+  if (!work || work.kind !== kind) work = { kind, doc: structuredClone(museumFor(kind)) };
+  forceFresh = false;
+  if (fresh) shell.setSaveStatus(kind === 'continue' ? 'ブラウザに保存済み' : ''); // サンプル・空の部屋は編集したら保存する
   const doc = work!.doc;
   show(doc);
 
@@ -282,6 +340,7 @@ function route() {
 
 let started = false; // 最初の表示ではフォーカスを動かさない
 let redirecting = false;
+let forceFresh = false;
 window.addEventListener('hashchange', route);
 route();
 started = true;

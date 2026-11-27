@@ -36,7 +36,14 @@ export interface ShellOptions {
   onInfoClosed(): void;
   /** 3D 作品を近くで見ている間の「寄る（-）/ 離れる（+）」（TMS 52） */
   onInspectZoom(delta: number): void;
+  /** 上部バーのメニュー（TMS 55〜64） */
+  onMenu(action: MenuAction): void;
+  /** 「JSON を読み込む」でファイルが選ばれた（TMS 56） */
+  onImportFile(file: File): void;
 }
+
+/** メニューの項目 */
+export type MenuAction = 'export' | 'import' | 'share' | 'quality' | 'help';
 
 /** 作品ライブラリの一覧に出す 1 点 */
 export interface LibraryItem {
@@ -94,7 +101,21 @@ export interface Shell {
   setLibrary(items: readonly LibraryItem[]): void;
   /** 3D 作品を近くで見ている間の操作の案内（TMS 52） */
   setInspecting(inspecting: boolean): void;
+  /** 上部バー右の保存状態（例「ブラウザに保存済み」。TMS 57）。空文字で隠す */
+  setSaveStatus(text: string): void;
+  /** メニューに出す項目（未実装の項目は出さない） */
+  setMenuItems(items: readonly MenuAction[]): void;
+  /** メニューの項目の文言を変える（例：画質「標準」→「軽量」） */
+  setMenuLabel(action: MenuAction, label: string): void;
 }
+
+const MENU: { action: MenuAction; label: string }[] = [
+  { action: 'export', label: 'JSON で書き出す' },
+  { action: 'import', label: 'JSON を読み込む…' },
+  { action: 'share', label: '共有用の URL をコピー' },
+  { action: 'quality', label: '画質：標準' },
+  { action: 'help', label: '操作のヘルプ' },
+];
 
 const TOOLS: { tool: EditTool; label: string; key: string; icon: string }[] = [
   { tool: 'select', label: '選択', key: 'V', icon: 'M5 3l13 8-6 1.5L9 19z' },
@@ -128,7 +149,17 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
         <button type="button" data-mode-btn="view" aria-pressed="true">鑑賞</button>
         <button type="button" data-mode-btn="edit" aria-pressed="false">編集</button>
       </div>
-      <div class="m-topbar__group"><span class="hud__title"></span></div>
+      <div class="m-topbar__group">
+        <span class="hud__title"></span>
+        <span class="hud__save" role="status" aria-live="polite"></span>
+        <div class="hud__menu-wrap">
+          <button type="button" class="m-btn m-btn--secondary m-btn--sm hud__menu-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="hud-menu">メニュー</button>
+          <div id="hud-menu" class="m-panel m-panel--dark hud__menu" role="menu" hidden>
+            ${MENU.map((m) => `<button type="button" role="menuitem" data-action="${m.action}">${m.label}</button>`).join('')}
+          </div>
+          <input type="file" class="hud__file" accept=".json,application/json" hidden />
+        </div>
+      </div>
     </header>
     <nav class="m-palette hud__palette" aria-label="編集の道具">
       ${TOOLS.map(
@@ -204,6 +235,40 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
   window.addEventListener('keydown', (e) => {
     if (e.code === 'Escape' && (!info.hidden || hud.dataset.inspect === 'true')) closeInfo();
   });
+  // ---- 上部バーのメニュー（TMS 55〜64）----
+  const menuBtn = q<HTMLButtonElement>('.hud__menu-btn');
+  const menu = q<HTMLElement>('.hud__menu');
+  const fileInput = q<HTMLInputElement>('.hud__file');
+  const setMenuOpen = (open: boolean) => {
+    menu.hidden = !open;
+    menuBtn.setAttribute('aria-expanded', String(open));
+    if (open) menu.querySelector<HTMLButtonElement>('button:not([hidden])')?.focus();
+  };
+  menuBtn.addEventListener('click', () => setMenuOpen(menu.hidden));
+  menu.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-action]');
+    if (!btn) return;
+    setMenuOpen(false);
+    const action = btn.dataset.action as MenuAction;
+    if (action === 'import') fileInput.click(); // ファイル選択はブラウザの画面で（このアプリはファイルを勝手に読まない）
+    else opts.onMenu(action);
+  });
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files?.[0];
+    fileInput.value = '';
+    if (file) opts.onImportFile(file);
+  });
+  document.addEventListener('pointerdown', (e) => {
+    if (!menu.hidden && !(e.target as HTMLElement).closest('.hud__menu-wrap')) setMenuOpen(false);
+  });
+  menu.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      setMenuOpen(false);
+      menuBtn.focus();
+    }
+  });
+
   const inspectBar = q<HTMLElement>('.hud__inspect');
   inspectBar.addEventListener('click', (e) => {
     const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('button');
@@ -304,6 +369,16 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
       q<HTMLElement>('.hud__inspector-label').textContent = info.label;
       q<HTMLElement>('.hud__inspector-where').textContent = info.where;
       q<HTMLButtonElement>('.hud__move').hidden = !info.movable;
+    },
+    setSaveStatus(text) {
+      q<HTMLElement>('.hud__save').textContent = text;
+    },
+    setMenuItems(items) {
+      menu.querySelectorAll<HTMLButtonElement>('[data-action]').forEach((b) => (b.hidden = !items.includes(b.dataset.action as MenuAction)));
+    },
+    setMenuLabel(action, label) {
+      const b = menu.querySelector<HTMLButtonElement>(`[data-action="${action}"]`);
+      if (b) b.textContent = label;
     },
     setInspecting(inspecting) {
       hud.dataset.inspect = String(inspecting);
