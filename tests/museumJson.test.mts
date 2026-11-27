@@ -70,3 +70,18 @@ test('大きすぎるファイルは読み込まない', () => {
 test('書き出しのファイル名', () => {
   assert.equal(exportFileName(sampleMuseum, new Date(2026, 10, 27)), 'museum-サンプル美術館-2026-11-27.json');
 });
+
+test('雰囲気（色と光）を書き出して読み込める。おかしな値は既定に戻して警告', () => {
+  const doc = { ...sampleMuseum, style: { wall: '#3a3d45', floor: '#26262b', light: 0.55, warmth: -0.45 } };
+  const r = parseMuseum(serializeMuseum(doc));
+  assert.ok(r.ok);
+  if (!r.ok) return;
+  assert.deepEqual(r.doc.style, doc.style);
+  const bad = JSON.parse(serializeMuseum(doc));
+  bad.style.light = 99;
+  const r2 = parseMuseum(JSON.stringify(bad));
+  assert.ok(r2.ok);
+  if (!r2.ok) return;
+  assert.equal(r2.doc.style, undefined);
+  assert.equal(r2.warnings.length, 1);
+});

@@ -59,3 +59,17 @@ test('すでに壁に埋まっている位置からは出られる', () => {
 test('目の高さ（Y）は変えない', () => {
   assert.equal(walk(sampleMuseum, [0, 1.6, 2.2], 0.05, -0.05)[1], 1.6);
 });
+
+test('置き物はぶつかる（回転した大きさで）。ラグは上を歩ける', () => {
+  const doc = {
+    ...sampleMuseum,
+    exhibits: [
+      { id: 'b', assetId: 'obj-bench', type: 'object' as const, mount: 'floor' as const, position: [0, 0, 0] as P, rotationY: Math.PI / 2 },
+      { id: 'r', assetId: 'obj-rug', type: 'object' as const, mount: 'floor' as const, position: [2, 0, 0] as P, rotationY: 0 },
+    ],
+  };
+  const extra = exhibitObstacles(doc, findAsset);
+  assert.equal(extra.length, 1); // ラグは障害物にならない
+  near(extra[0].size[0], 0.5); // 90° 回したベンチ：幅 0.5 × 奥行き 1.6
+  near(extra[0].size[2], 1.6);
+});

@@ -99,9 +99,40 @@ export const LIBRARY: readonly ExhibitAsset[] = [
   },
 ];
 
-const byId = new Map(LIBRARY.map((a) => [a.id, a]));
+/**
+ * 内蔵の置き物（作品ではない物）。形は exhibits/objectModels.ts が three.js で作る（外部の素材は使わない）。
+ * size：[床の上の大きさの長いほう, 高さ]、footprint：当たり判定の幅×奥行き
+ */
+export const OBJECTS: readonly ExhibitAsset[] = [
+  { id: 'obj-bench', type: 'object', mount: 'floor', model: 'bench', title: 'ベンチ', author: '', description: '', size: [1.6, 0.45], footprint: [1.6, 0.5], placeholderColor: '#8a6a4a' },
+  { id: 'obj-plant', type: 'object', mount: 'floor', model: 'plant', title: '植物', author: '', description: '', size: [0.6, 1.4], footprint: [0.5, 0.5], placeholderColor: '#5f7f5a' },
+  { id: 'obj-column', type: 'object', mount: 'floor', model: 'column', title: '柱', author: '', description: '', size: [0.5, 3], footprint: [0.5, 0.5], placeholderColor: '#eeebe5' },
+  { id: 'obj-plinth', type: 'object', mount: 'floor', model: 'plinth', title: '低い台', author: '', description: '', size: [1.2, 0.4], footprint: [1.2, 0.8], placeholderColor: '#e4ded3' },
+  { id: 'obj-lamp', type: 'object', mount: 'floor', model: 'lamp', title: 'ランプ', author: '', description: '', size: [0.4, 1.6], footprint: [0.4, 0.4], placeholderColor: '#2a2d31' },
+  { id: 'obj-rug', type: 'object', mount: 'floor', model: 'rug', title: 'ラグ', author: '', description: '', size: [2.4, 0.02], footprint: [2.4, 1.6], walkable: true, placeholderColor: '#7a4a3a' },
+];
 
-/** id から作品を引く。無い id（壊れた JSON など）は undefined */
+const byId = new Map([...LIBRARY, ...OBJECTS].map((a) => [a.id, a]));
+
+// 利用者がこのブラウザで追加した作品（storage/userAssets.ts が起動時に登録する）
+const ownAssets = new Map<string, ExhibitAsset>();
+
+export function registerOwnAsset(asset: ExhibitAsset) {
+  ownAssets.set(asset.id, { ...asset, own: true });
+}
+export function unregisterOwnAsset(id: string) {
+  ownAssets.delete(id);
+}
+/** 作品の一覧（自分の作品を先に） */
+export function allAssets(): ExhibitAsset[] {
+  return [...[...ownAssets.values()].filter((a) => a.type !== 'object'), ...LIBRARY];
+}
+/** 置き物の一覧（自分で追加した 3D モデルを先に） */
+export function allObjects(): ExhibitAsset[] {
+  return [...[...ownAssets.values()].filter((a) => a.type === 'object'), ...OBJECTS];
+}
+
+/** id から作品を引く。無い id（壊れた JSON・別の端末で追加した作品など）は undefined */
 export function findAsset(id: string): ExhibitAsset | undefined {
-  return byId.get(id);
+  return byId.get(id) ?? ownAssets.get(id);
 }

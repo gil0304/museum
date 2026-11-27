@@ -21,48 +21,56 @@ body { margin: 0; background: var(--c-ink-900); color: var(--c-on-dark); font-fa
 }
 .title-screen[hidden] { display: none; }
 .title-screen__inner { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-4); max-width: 520px; }
-.title-screen .m-eyebrow { color: var(--c-on-scene-muted); }
 .title-screen .m-hero { text-shadow: 0 1px 12px rgba(249, 249, 249, 0.5); }
-.title-screen__lead { margin: 0; max-width: 30em; font-size: var(--fs-md); line-height: 2; }
-.title-screen__actions { display: flex; flex-wrap: wrap; gap: var(--s-3); margin-top: var(--s-2); }
+.title-screen__actions { display: flex; flex-wrap: wrap; gap: var(--s-3); margin-top: var(--s-4); }
+/* 自分の美術館の一覧（名前だけ） */
+.title-screen__mine { list-style: none; margin: var(--s-3) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--s-2); max-width: 520px; }
+.title-screen__mine button { padding: var(--s-2) var(--s-3); border: 0; border-radius: var(--r-1); background: rgba(247, 244, 239, 0.75); color: var(--c-on-scene); font: 600 var(--fs-sm) / 1.4 var(--font-ui); cursor: pointer; max-width: 16em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.title-screen__mine button:hover { background: var(--c-paper); }
+.title-screen__mine button::before { content: '◆ '; color: var(--c-accent-text); }
 .title-screen .m-btn--secondary { background: rgba(247, 244, 239, 0.7); }
 .title-screen .m-btn--secondary:hover { background: var(--c-paper); }
-.title-screen__continue { color: var(--c-on-scene); text-decoration: underline; text-underline-offset: 4px; }
-.title-screen__note { margin: var(--s-2) 0 0; font-size: var(--fs-xs); color: var(--c-on-scene-muted); }
 @keyframes title-in { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---- ② 鑑賞中の上部バーとヒント ---- */
 .hud[hidden] { display: none; }
 .hud__home { background: none; border: 0; padding: var(--s-1) var(--s-2); color: inherit; font-size: 18px; cursor: pointer; border-radius: var(--r-1); }
 .hud__home:hover { color: var(--c-accent); }
-.hud__title { font-size: var(--fs-sm); color: var(--c-on-dark-muted); }
+.hud__title { max-width: 18em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: var(--s-1) var(--s-2); border: 1px solid transparent; border-radius: var(--r-1); background: none; color: var(--c-on-dark-muted); font: 600 var(--fs-sm) var(--font-ui); }
+.hud__title:not(:disabled) { cursor: text; color: var(--c-on-dark); }
+.hud__title:not(:disabled):hover { border-color: var(--c-ink-700); }
+.hud__title:disabled { cursor: default; }
+.hud__title-input { width: 16em; padding: var(--s-1) var(--s-2); border: 1px solid var(--c-accent); border-radius: var(--r-1); background: var(--c-ink-800); color: var(--c-on-dark); font: 600 var(--fs-sm) var(--font-ui); }
 .hud .m-segment button:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* ---- 鑑賞 / 編集 の切り替え（TMS 39）---- */
-.hud[data-mode='view'] .hud__palette, .hud[data-mode='view'] .hud__hint-edit { display: none; }
-.hud[data-mode='edit'] .hud__hint-view, .hud[data-mode='edit'] .move-pad { display: none !important; }
+.hud[data-mode='view'] .hud__palette { display: none; }
+.hud[data-mode='edit'] .move-pad { display: none !important; }
 .hud__palette button:disabled { opacity: 0.35; cursor: not-allowed; }
 .hud__palette button:disabled:hover { background: transparent; color: var(--c-on-dark-muted); }
-.hud__hint-edit { text-shadow: 0 1px 6px rgba(249, 249, 249, 0.6); }
-.hud__inspector { position: absolute; z-index: var(--z-panel); top: calc(var(--topbar-h) + var(--s-4)); right: var(--s-4); width: 300px; }
+.hud__inspector { position: absolute; z-index: var(--z-panel); top: calc(var(--topbar-h) + var(--s-4)); right: var(--s-4); width: 260px; padding: var(--s-4); }
+.hud__inspector h2 { margin: 0 0 var(--s-3) !important; font-size: var(--fs-xl) !important; }
+.hud__inspector-name { width: 100%; margin-bottom: var(--s-3); padding: var(--s-2); border: 1px solid var(--c-ink-700); border-radius: var(--r-1); background: var(--c-ink-900); color: var(--c-on-dark); font: 400 var(--fs-lg) var(--font-display); }
+.hud__inspector-name:focus { border-color: var(--c-accent); outline: none; }
 .hud[data-mode='view'] .hud__inspector { display: none; }
 .hud__inspector-actions { display: flex; flex-wrap: wrap; gap: var(--s-2); }
 .hud__inspector .m-btn--secondary { color: var(--c-on-dark); }
 /* 3D 作品を近くで見る（TMS 52）：歩く操作の案内・移動ボタンを隠し、下中央に操作を出す */
 .hud__inspect { position: absolute; z-index: var(--z-toolbar); left: 50%; bottom: var(--s-5); transform: translateX(-50%); display: none; align-items: center; gap: var(--s-2); padding: var(--s-2) var(--s-3); border-radius: var(--r-2); background: color-mix(in srgb, var(--c-ink-900) 85%, transparent); color: var(--c-on-dark); white-space: nowrap; }
-.hud__inspect-text { font-size: var(--fs-sm); color: var(--c-on-dark-muted); margin-right: var(--s-2); }
 .hud__inspect .m-btn--secondary { color: var(--c-on-dark); }
 .hud__inspect .m-btn--primary { background: var(--c-on-dark); color: var(--c-ink-900); border-color: var(--c-on-dark); }
 .hud[data-inspect='true'] .hud__inspect { display: flex; }
-.hud[data-inspect='true'] .hud__hint-view, .hud[data-inspect='true'] .move-pad { display: none !important; }
+.hud[data-inspect='true'] .move-pad { display: none !important; }
 .hud[data-inspect='true'] .hud__info { bottom: calc(var(--s-5) + 64px); }
 
 /* 作品ライブラリ（編集・作品の道具。TMS 47） */
-.hud__library { position: absolute; z-index: var(--z-panel); top: calc(var(--topbar-h) + var(--s-4)); right: var(--s-4); width: 300px; max-height: calc(100% - var(--topbar-h) - 80px); overflow: auto; }
+.hud__library { position: absolute; z-index: var(--z-panel); top: calc(var(--topbar-h) + var(--s-4)); right: var(--s-4); width: 260px; max-height: calc(100% - var(--topbar-h) - 80px); overflow: auto; padding: var(--s-3); display: grid; gap: var(--s-3); }
+.hud__upload { width: 100%; }
+.hud__library-list li { display: flex; gap: var(--s-1); }
+.hud__library-list .hud__library-remove { width: 32px; flex: none; justify-content: center; padding: 0; color: var(--c-on-dark-muted); }
 .hud[data-mode='view'] .hud__library { display: none; }
-.hud__library h2 { font-size: var(--fs-xl) !important; }
 .hud__library-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-1); }
-.hud__library-list button { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: var(--s-2); padding: var(--s-2) var(--s-3); border: 1px solid var(--c-ink-700); border-radius: var(--r-1); background: transparent; color: var(--c-on-dark); font: 600 var(--fs-sm) / 1.4 var(--font-ui); text-align: left; cursor: pointer; }
+.hud__library-list button { flex: 1; min-width: 0; display: flex; justify-content: space-between; align-items: center; gap: var(--s-2); padding: var(--s-2) var(--s-3); border: 1px solid var(--c-ink-700); border-radius: var(--r-1); background: transparent; color: var(--c-on-dark); font: 600 var(--fs-sm) / 1.4 var(--font-ui); text-align: left; cursor: pointer; }
 .hud__library-list button small { color: var(--c-on-dark-muted); font-weight: 400; white-space: nowrap; }
 .hud__library-list button:hover { background: var(--c-ink-700); }
 .hud__library-list button[aria-pressed='true'] { background: var(--c-accent); color: var(--c-ink-900); border-color: var(--c-accent); }
@@ -70,10 +78,13 @@ body { margin: 0; background: var(--c-ink-900); color: var(--c-on-dark); font-fa
 /* 作品ライブラリを出している間は、選択の情報パネルを下にずらす */
 .hud:has(.hud__library:not([hidden])) .hud__inspector { top: auto; bottom: var(--s-5); }
 /* 作品情報パネル（鑑賞中・右下。TMS 46） */
-.hud__info { position: absolute; z-index: var(--z-panel); right: var(--s-5); bottom: var(--s-5); width: min(340px, calc(100% - 32px)); max-height: calc(100% - var(--topbar-h) - 40px); overflow: auto; }
+.hud__info { position: absolute; z-index: var(--z-panel); right: var(--s-5); bottom: var(--s-5); width: min(320px, calc(100% - 32px)); max-height: calc(100% - var(--topbar-h) - 40px); overflow: auto; padding-right: var(--s-7); }
+.hud__info h2 { margin-top: 0 !important; }
+.hud__info-close { position: absolute; top: var(--s-3); right: var(--s-3); width: 32px; height: 32px; border: 0; border-radius: var(--r-1); background: transparent; color: var(--c-text-muted); font-size: 16px; cursor: pointer; }
+.hud__info-close:hover { background: rgba(0, 0, 0, 0.06); }
+.hud__info-warning { color: var(--c-danger); font-weight: 600; }
 .hud[data-mode='edit'] .hud__info { display: none; }
 .hud__info-meta { margin-bottom: var(--s-2) !important; white-space: pre-line; }
-.hud__info-badge { margin: 0 0 var(--s-2) !important; }
 .hud__info-desc { white-space: pre-line; }
 
 /* ---- 移動ボタン（タッチ端末・狭い画面だけ表示。TMS 37）---- */
@@ -92,11 +103,9 @@ body { margin: 0; background: var(--c-ink-900); color: var(--c-on-dark); font-fa
 .move-pad__btn--left { grid-area: 2 / 1; }
 .move-pad__btn--right { grid-area: 2 / 3; }
 .move-pad__btn--back { grid-area: 3 / 2; }
-.hud__touch { display: none; }
 .m-hint .m-kbd + .m-kbd { margin-left: 2px; }
 @media (pointer: coarse), (max-width: 700px) {
   .move-pad { display: grid; }
-  .hud__touch { display: inline; }
 }
 
 /* ---- スマホ（幅 700px 以下）---- */
@@ -108,9 +117,7 @@ body { margin: 0; background: var(--c-ink-900); color: var(--c-on-dark); font-fa
   .title-screen__actions { width: 100%; }
   .title-screen__actions .m-btn { flex: 1 1 100%; }
   .hud .m-segment { display: none; }
-  .hud__keys { display: none; } /* スマホではキー操作の案内を出さない */
   .hud__info { left: 0; right: 0; bottom: 0; width: auto; max-height: 55%; border-radius: var(--r-3) var(--r-3) 0 0; z-index: var(--z-dialog); } /* 画面下からのシート */
-  .hud__inspect-text { display: none; }
   .hud[data-inspect='true'] .hud__info { display: none; } /* スマホでは作品を大きく見せる */
   .hud__toast { top: calc(48px + var(--s-3)); bottom: auto; width: max-content; max-width: calc(100% - 32px); } /* 移動ボタンと重ならないよう上に出す */
   .m-topbar { height: 48px; }
@@ -139,8 +146,6 @@ body { margin: 0; background: var(--c-ink-900); color: var(--c-on-dark); font-fa
 .hic-dialog .hic-panel { max-width: 100%; }
 
 /* ---- 上部バーのメニューと保存状態（TMS 55〜64）---- */
-.hud__save { font-size: var(--fs-xs); color: var(--c-on-dark-muted); white-space: nowrap; }
-.hud[data-mode='view'] .hud__save { display: none; }
 .hud__menu-wrap { position: relative; }
 .hud__menu { position: absolute; top: calc(100% + var(--s-2)); right: 0; z-index: var(--z-dialog); min-width: 220px; padding: var(--s-2); display: grid; gap: 2px; }
 .hud__menu button { padding: var(--s-2) var(--s-3); border: 0; border-radius: var(--r-1); background: transparent; color: var(--c-on-dark); font: 600 var(--fs-sm) / 1.4 var(--font-ui); text-align: left; cursor: pointer; }
@@ -150,17 +155,14 @@ body { margin: 0; background: var(--c-ink-900); color: var(--c-on-dark); font-fa
 }
 
 /* ---- 初回の案内と操作のヘルプ（TMS 62）---- */
-.hud__guide { position: absolute; z-index: var(--z-panel); left: 50%; bottom: calc(var(--s-7) + var(--s-5)); transform: translateX(-50%); width: min(460px, calc(100% - 32px)); }
-.hud__guide h2 { font-size: var(--fs-xl) !important; }
-.hud__guide p { font-size: var(--fs-md) !important; }
+.hud__guide { position: absolute; z-index: var(--z-panel); left: 50%; bottom: var(--s-6); transform: translateX(-50%); display: flex; align-items: center; gap: var(--s-4); padding: var(--s-3) var(--s-3) var(--s-3) var(--s-5); width: max-content; max-width: calc(100% - 32px); }
+.hud__guide[hidden] { display: none; }
+.hud__guide p { margin: 0 !important; font-size: var(--fs-md) !important; }
 .hud[data-inspect='true'] .hud__guide { display: none; }
-.help { width: min(860px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: var(--s-6); border: 0; border-radius: var(--r-3); background: var(--c-paper); color: var(--c-text); box-shadow: var(--shadow-panel); }
+.help { position: relative; width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: var(--s-6); border: 0; border-radius: var(--r-3); background: var(--c-paper); color: var(--c-text); box-shadow: var(--shadow-panel); }
 .help::backdrop { background: rgba(8, 9, 10, 0.55); }
-.help__head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--s-4); margin-bottom: var(--s-4); }
-.help__head .m-eyebrow { color: var(--c-accent-text); }
-.help h2 { margin: var(--s-2) 0 0; font: 400 var(--fs-2xl) / var(--lh-tight) var(--font-display); }
-.help__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--s-5) var(--s-6); }
-.help h3 { margin: 0 0 var(--s-2); font: 600 var(--fs-md) / 1.4 var(--font-ui); border-bottom: 1px solid var(--c-paper-line); padding-bottom: var(--s-2); }
+.help__close { position: absolute; top: var(--s-4); right: var(--s-4); }
+.help h2 { margin: 0 0 var(--s-4); font: 400 var(--fs-2xl) / var(--lh-tight) var(--font-display); }
 .help dl { display: grid; grid-template-columns: 7em 1fr; gap: var(--s-2) var(--s-3); margin: 0; font-size: var(--fs-sm); line-height: 1.7; }
 .help dt { color: var(--c-text-muted); font-weight: 600; }
 .help dd { margin: 0; }
@@ -168,7 +170,6 @@ body { margin: 0; background: var(--c-ink-900); color: var(--c-on-dark); font-fa
 @media (max-width: 700px) {
   .hud__guide { bottom: calc(52px * 3 + var(--s-7) + var(--s-5)); }
   .help { padding: var(--s-5); }
-  .help__grid { grid-template-columns: 1fr; }
   .help dl { grid-template-columns: 6em 1fr; }
 }
 
@@ -179,8 +180,29 @@ body { margin: 0; background: var(--c-ink-900); color: var(--c-on-dark); font-fa
 .no-webgl p { line-height: var(--lh-body); color: var(--c-on-dark-muted); }
 
 /* ---- この作品について（TMS 70）---- */
-.title-screen__about { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
-.about__lead { margin: 0 0 var(--s-5); font-size: var(--fs-md); line-height: var(--lh-body); }
+.title-screen__about { position: absolute; left: clamp(24px, 8vw, 120px); bottom: var(--s-6); padding: 0; border: 0; background: none; color: var(--c-on-scene-muted); font: var(--fs-xs) var(--font-ui); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.about__lead { margin: 0 0 var(--s-4); font-size: var(--fs-md); line-height: var(--lh-body); }
 .about ul { margin: 0; padding-left: 1.2em; font-size: var(--fs-sm); line-height: 1.8; }
 .about li + li { margin-top: var(--s-2); }
 .about a { color: var(--c-accent-text); }
+.about__links { margin: var(--s-4) 0 0; font-size: var(--fs-xs); color: var(--c-text-muted); }
+@media (max-width: 700px) {
+  .title-screen__about { left: var(--s-5); bottom: var(--s-3); }
+}
+
+/* ---- 雰囲気・色見本・置き物（2026-11-27）---- */
+.swatches { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--s-3); }
+.swatches[hidden] { display: none; }
+.swatches button { width: 22px; height: 22px; padding: 0; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 50%; background: var(--sw); cursor: pointer; }
+.swatches button[aria-pressed='true'] { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+.swatches input[type='color'] { width: 24px; height: 24px; padding: 0; border: 0; background: none; cursor: pointer; }
+.hud__style { position: absolute; z-index: var(--z-panel); top: calc(var(--topbar-h) + var(--s-4)); right: var(--s-4); width: 260px; padding: var(--s-4); display: grid; gap: var(--s-1); }
+.hud[data-mode='view'] .hud__style { display: none; }
+.hud__style[hidden] { display: none; }
+.hud__style label { font: 600 var(--fs-xs) var(--font-ui); color: var(--c-on-dark-muted); }
+.hud__style input[type='range'] { width: 100%; margin: 0 0 var(--s-3); accent-color: var(--c-accent); }
+.hud__warmth { background: linear-gradient(90deg, #cfdcff, #fffaf2, #ffc78a); border-radius: 999px; height: 6px; appearance: none; }
+.hud__presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s-1); margin-bottom: var(--s-3); }
+.hud__presets button { padding: var(--s-2) 0; border: 0; border-radius: var(--r-1); background: linear-gradient(180deg, var(--a) 0 58%, var(--b) 58% 100%); color: #fff; font: 600 var(--fs-xs) var(--font-ui); cursor: pointer; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.75); }
+.hud__presets button:hover { outline: 2px solid var(--c-accent); }
+.hud:has(.hud__objects:not([hidden])) .hud__inspector, .hud:has(.hud__style:not([hidden])) .hud__inspector { top: auto; bottom: var(--s-5); }

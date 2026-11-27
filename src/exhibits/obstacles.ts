@@ -11,10 +11,13 @@ export function exhibitObstacles(doc: MuseumDocument, resolve: ResolveAssetFn): 
   const out: RoomPart[] = [];
   for (const p of doc.exhibits) {
     const a = resolve(p.assetId);
-    if (!a || a.mount !== 'floor') continue;
-    // 回した正方形の台座を囲む軸に沿った正方形（一辺 = 幅 ×（|cos| + |sin|））
-    const w = a.size[0] * (Math.abs(Math.cos(p.rotationY)) + Math.abs(Math.sin(p.rotationY)));
-    out.push({ id: `obstacle-${p.id}`, type: 'pedestal', position: [p.position[0], PEDESTAL_HEIGHT / 2, p.position[2]], size: [w, PEDESTAL_HEIGHT, w] });
+    if (!a || a.mount !== 'floor' || a.walkable) continue; // ラグなど上を歩ける物は除く
+    // 台座・置き物の床の上の四角（幅×奥行き）を回して、それを囲む軸に沿った四角にする
+    const [fw, fd] = a.footprint ?? [a.size[0], a.size[0]];
+    const c = Math.abs(Math.cos(p.rotationY));
+    const sn = Math.abs(Math.sin(p.rotationY));
+    const h = a.type === 'object' ? a.size[1] : PEDESTAL_HEIGHT;
+    out.push({ id: `obstacle-${p.id}`, type: 'pedestal', position: [p.position[0], h / 2, p.position[2]], size: [fw * c + fd * sn, h, fw * sn + fd * c] });
   }
   return out;
 }

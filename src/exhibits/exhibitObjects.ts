@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { ExhibitAsset, ExhibitPlacement, MuseumDocument } from '../types/museum';
 import { buildHtmlExhibit } from './htmlExhibit';
+import { buildObjectModel } from './objectModels';
 
 export type ResolveAsset = (id: string) => ExhibitAsset | undefined;
 
@@ -440,11 +441,62 @@ function buildFloorPiece(asset: ExhibitAsset, view?: ExhibitView): THREE.Group {
   return g;
 }
 
+// ---- 置き物（type 'object'。台座なし・解説なし）----
+/** 自分の 3D モデルを置き物として置くときの大きさの範囲（長い辺、m）。単位のおかしなモデルでも部屋に収まるように */
+const OBJECT_MIN = 0.2;
+const OBJECT_MAX = 4;
+
+function buildObjectPiece(asset: ExhibitAsset, view: ExhibitView): THREE.Group {
+  const g = new THREE.Group();
+  const builtin = buildObjectModel(asset.model);
+  if (builtin) {
+    g.add(builtin);
+    return g;
+  }
+  // 自分の GLB：読み込むまでは仮の箱
+  const [w, h] = asset.size;
+  const ph = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), standard(asset.placeholderColor, { transparent: true, opacity: 0.5 }));
+  ph.position.y = h / 2;
+  g.add(ph);
+  if (!asset.src) return g;
+  view.status = 'loading';
+  loadGltf(asset.src).then(
+    (gltf) => {
+      g.remove(ph);
+      ph.geometry.dispose();
+      (ph.material as THREE.Material).dispose();
+      const model = gltf.scene.clone(true);
+      model.traverse((o) => {
+        if (o instanceof THREE.Mesh) {
+          o.castShadow = o.receiveShadow = true;
+          o.userData.sharedAsset = true;
+        }
+      });
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const longest = Math.max(size.x, size.y, size.z) || 1;
+      const scale = longest > OBJECT_MAX ? OBJECT_MAX / longest : longest < OBJECT_MIN ? OBJECT_MIN / longest : 1;
+      model.scale.setScalar(scale);
+      const c = box.getCenter(new THREE.Vector3());
+      model.position.set(-c.x * scale, -box.min.y * scale, -c.z * scale); // 底を床に、中心を原点に
+      const holder = new THREE.Group();
+      holder.name = 'model';
+      holder.add(model);
+      g.add(holder);
+      view.status = 'ready';
+      view.onLoad?.();
+    },
+    () => markError(view, '3D モデルを読み込めませんでした', '3Dモデル'),
+  );
+  return g;
+}
+
 export function buildExhibit(placement: ExhibitPlacement, asset: ExhibitAsset): ExhibitView {
   const group = new THREE.Group();
   const view: ExhibitView = { placement, asset, group, status: 'ready' };
   let piece: THREE.Group | undefined;
-  if (asset.mount === 'floor') piece = buildFloorPiece(asset, view);
+  if (asset.type === 'object') piece = buildObjectPiece(asset, view);
+  else if (asset.mount === 'floor') piece = buildFloorPiece(asset, view);
   else if (asset.type === 'image') piece = buildWallPiece(asset, faceMaterials(asset, view)); // TMS 45
   else if (asset.type === 'video') Object.assign(view, buildVideo(asset, view, (p) => (piece = p)));
   else if (asset.type === 'audio') Object.assign(view, buildAudio(asset, view, (p) => (piece = p)));

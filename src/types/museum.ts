@@ -7,7 +7,8 @@ export type Vec3 = [number, number, number];
 /** 展示室の寸法の初期値（docs/SUBMISSION_EXPERIENCE.md）。1マス = 1m、最大 12×12マス、壁の高さ 3m */
 export const ROOM_GRID = { cell: 1, maxCells: 12, wallHeight: 3 } as const;
 
-export type ExhibitType = 'image' | 'text' | 'video' | 'audio' | 'glb' | 'interactive-html';
+/** 作品の種類。object は作品ではない置き物（ベンチ・植物など。台座なし、解説なし） */
+export type ExhibitType = 'image' | 'text' | 'video' | 'audio' | 'glb' | 'interactive-html' | 'object';
 
 /**
  * 建築パーツ（床・壁・展示台）。position は箱の中心、size は幅・高さ・奥行き。
@@ -50,6 +51,13 @@ export interface ExhibitAsset {
   template?: string;
   /** 素材が読み込めないとき・読み込み中の色 */
   placeholderColor: string;
+  /** 利用者がこのブラウザで追加した作品（IndexedDB に保存。src は blob: の URL） */
+  own?: boolean;
+  /** 置き物（type 'object'）の内蔵の形（bench・plant など）。無ければ src の GLB */
+  model?: string;
+  /** 置き物の床の上の大きさ（幅×奥行き、m）。当たり判定に使う。walkable なら上を歩ける（ラグ） */
+  footprint?: [number, number];
+  walkable?: boolean;
 }
 
 /**
@@ -71,10 +79,24 @@ export interface ExhibitPlacement {
   description?: string;
 }
 
+/**
+ * 展示室の雰囲気（色と光）。無ければ既定（明るいギャラリー）。
+ * wall・floor は色の付いていない壁・床に使う（パーツごとの color が優先）。
+ */
+export interface MuseumStyle {
+  wall: string;
+  floor: string;
+  /** 明るさ（0.4〜1.6、1 が既定） */
+  light: number;
+  /** 光の色（-1 青白い〜 0 自然〜 1 暖かい） */
+  warmth: number;
+}
+
 export interface MuseumDocument {
   schemaVersion: 1;
   id: string;
   title: string;
   objects: RoomPart[];
   exhibits: ExhibitPlacement[];
+  style?: MuseumStyle;
 }

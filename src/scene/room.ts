@@ -1,6 +1,6 @@
 // 美術館データ（MuseumDocument）から Three.js のシーンを組み立てる。DOM には触れない。
 import * as THREE from 'three';
-import { ROOM_GRID, type MuseumDocument, type RoomPart } from '../types/museum';
+import { ROOM_GRID, type MuseumDocument, type MuseumStyle, type RoomPart } from '../types/museum';
 
 /** 一人称の視点（目の位置と向き）。yaw は Y 軸まわり（0 で -Z を向く）、pitch は上下（正で上） */
 export interface ViewPose {
@@ -43,6 +43,16 @@ const LIGHT = {
   fill: { color: '#f3f1ff', intensity: 0.55, offset: [2.5, 2.2, 9] as THREE.Vector3Tuple }, // 手前右から壁と作品の正面を起こす（影なし）
 };
 
+/** 雰囲気の既定（明るいギャラリー）。文書に style が無いときに使う */
+export const DEFAULT_STYLE: MuseumStyle = { wall: '#eeebe5', floor: '#b9b2a8', light: 1, warmth: 0 };
+
+/** 光の色を暖かさ（-1〜1）で寄せる：-1 青白い、0 そのまま、1 夕日のような暖色 */
+function tint(base: string, warmth: number) {
+  const c = new THREE.Color(base);
+  const to = new THREE.Color(warmth >= 0 ? '#ffc78a' : '#cfdcff');
+  return c.lerp(to, Math.min(1, Math.abs(warmth)) * 0.75);
+}
+
 const standard = (color: string, extra: THREE.MeshStandardMaterialParameters = {}) =>
   new THREE.MeshStandardMaterial({ color, roughness: 0.9, ...extra });
 
@@ -81,8 +91,9 @@ export function roomBounds(parts: RoomPart[]): RoomBounds | null {
  * 床・壁・展示台。影は受けるだけ（壁が影を落とすと、天井の外から光が差しているように見えるため）。
  * 展示台は作品と同じく影を落とす。
  */
-function buildPart(part: RoomPart) {
-  const mesh = box(part.size, part.position, standard(part.color ?? '#eeebe5'));
+function buildPart(part: RoomPart, style: MuseumStyle) {
+  const fallback = part.type === 'floor' ? style.floor : style.wall;
+  const mesh = box(part.size, part.position, standard(part.color ?? fallback));
   mesh.name = part.id;
   mesh.receiveShadow = true;
   mesh.castShadow = part.type === 'pedestal';
@@ -94,7 +105,7 @@ function buildPart(part: RoomPart) {
  * 板は下向きの片面だけ描くので、編集モードの斜め上からの視点（TMS 39〜）では邪魔にならない。
  * 影は落とさない・受けない（主光は天井の照明を表しているため）。
  */
-function buildCeiling(b: RoomBounds): THREE.Group {
+function buildCeiling(b: RoomBounds, style: MuseumStyle): THREE.Group {
   const width = b.maxX - b.minX;
   const depth = b.maxZ - b.minZ;
   const cx = (b.minX + b.maxX) / 2;
@@ -109,10 +120,10 @@ function buildCeiling(b: RoomBounds): THREE.Group {
     return plane;
   };
   // 下向きの面には上からの光が当たらず暗くなりすぎるため、少しだけ自ら光らせて明るい天井に見せる
-  const surface = standard(CEILING_COLOR, { emissive: CEILING_COLOR, emissiveIntensity: CEILING_GLOW });
+  const surface = standard(CEILING_COLOR, { emissive: tint(CEILING_COLOR, style.warmth * 0.5), emissiveIntensity: CEILING_GLOW * style.light });
   group.add(facingDown(width, depth, surface, b.height));
   // 天井の照明（光る帯）。見た目だけで、実際の光は LIGHT の主光・半球光が担う
-  const light = new THREE.MeshBasicMaterial({ color: CEILING_LIGHT_COLOR });
+  const light = new THREE.MeshBasicMaterial({ color: tint(CEILING_LIGHT_COLOR, style.warmth).multiplyScalar(Math.min(1, 0.5 + style.light / 2)) });
   const stripLength = Math.max(width - 1.6, width * 0.6);
   for (const offset of depth >= 4 ? [-depth / 4, depth / 4] : [0]) {
     group.add(facingDown(stripLength, 0.32, light, b.height - 0.01, cz + offset));
@@ -171,24 +182,27 @@ export function createRoomScene(doc: MuseumDocument, options: RoomSceneOptions =
   camera.position.set(0, 2.4, 8);
 
   const bounds = roomBounds(doc.objects);
+  // 雰囲気（色と光）：明るさは全ての光の強さに、暖かさは光の色に効く
+  const style = doc.style ?? DEFAULT_STYLE;
 
-  const ambient = new THREE.HemisphereLight(LIGHT.sky, LIGHT.ground, LIGHT.ambient);
-  const key = new THREE.DirectionalLight(LIGHT.key.color, LIGHT.key.intensity);
+  const ambient = new THREE.HemisphereLight(tint(LIGHT.sky, style.warmth), LIGHT.ground, LIGHT.ambient * style.light);
+  ambient.userData.base = ambient.intensity; // HTML 作品のスライダーはこれを基準に明るさを変える
+  const key = new THREE.DirectionalLight(tint(LIGHT.key.color, style.warmth), LIGHT.key.intensity * style.light);
   aimKeyLight(key, bounds, options.shadowMapSize ?? 2048);
-  const fill = new THREE.DirectionalLight(LIGHT.fill.color, LIGHT.fill.intensity);
+  const fill = new THREE.DirectionalLight(tint(LIGHT.fill.color, style.warmth * 0.6), LIGHT.fill.intensity * style.light);
   fill.position.set(...LIGHT.fill.offset);
   scene.add(ambient, key, key.target, fill);
 
   const parts = new Map<string, THREE.Mesh>();
   for (const part of doc.objects) {
-    const mesh = buildPart(part);
+    const mesh = buildPart(part, style);
     mesh.userData.partId = part.id;
     mesh.userData.partType = part.type;
     parts.set(part.id, mesh);
     scene.add(mesh);
   }
   // 作品は exhibits/exhibitObjects.ts が別に作って scene に入れる（TMS 44）
-  if (bounds) scene.add(buildCeiling(bounds));
+  if (bounds) scene.add(buildCeiling(bounds, style));
 
   return { scene, camera, spawn: spawnPose(bounds), parts, lights: { ambient, key, fill } };
 }

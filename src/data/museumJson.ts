@@ -2,7 +2,7 @@
 // 読み込むときは、型・値の範囲を確かめたうえで**作り直す**（知らない項目は捨てる）。作品はライブラリにある id だけ。
 // 任意の URL・HTML・スクリプトは受け付けない（CLAUDE.md の安全方針。データからは同梱の素材を id で選ぶだけ）。
 // Node のテスト（tests/）から直接読むため、値の import には拡張子 .ts を付ける
-import { ROOM_GRID, type ExhibitPlacement, type MuseumDocument, type RoomPart, type Vec3 } from '../types/museum.ts';
+import { ROOM_GRID, type ExhibitPlacement, type MuseumDocument, type MuseumStyle, type RoomPart, type Vec3 } from '../types/museum.ts';
 import { findAsset } from './library.ts';
 
 /** 読み込める JSON の大きさの上限（文字数）。サンプル美術館は 3KB ほど */
@@ -30,6 +30,7 @@ export function serializeMuseum(doc: MuseumDocument): string {
       ...(e.title ? { title: e.title } : {}),
       ...(e.description ? { description: e.description } : {}),
     })),
+    ...(doc.style ? { style: doc.style } : {}),
   };
   return JSON.stringify(out, null, 2);
 }
@@ -99,9 +100,17 @@ export function parseMuseum(json: string): ParseResult {
     });
   });
 
+  // 雰囲気（色と光）。おかしな値なら無し（既定の雰囲気）にする
+  let style: MuseumStyle | undefined;
+  const st = raw.style;
+  if (isObj(st) && typeof st.wall === 'string' && COLOR.test(st.wall) && typeof st.floor === 'string' && COLOR.test(st.floor) && num(st.light, 0.4, 1.6) && num(st.warmth, -1, 1)) {
+    style = { wall: st.wall, floor: st.floor, light: st.light as number, warmth: st.warmth as number };
+  } else if (st !== undefined) warnings.push('雰囲気（色と光）の値が正しくないので既定にしました');
+
   return {
     ok: true,
     doc: {
+      ...(style ? { style } : {}),
       schemaVersion: 1,
       id: text(raw.id, 64) && ID.test(raw.id as string) ? (raw.id as string) : 'imported',
       title: text(raw.title, MAX_TITLE)?.trim() || '読み込んだ美術館',

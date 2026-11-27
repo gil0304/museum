@@ -10,7 +10,7 @@ import { createCollider } from '../scene/collision';
 import { PEDESTAL_HEIGHT, pickExhibit, type ExhibitSet } from '../exhibits/exhibitObjects';
 import { findAsset } from '../data/library';
 
-export type BuildTool = 'select' | 'floor' | 'wall' | 'exhibit' | 'delete';
+export type BuildTool = 'select' | 'floor' | 'wall' | 'exhibit' | 'object' | 'style' | 'delete';
 
 const FLOOR_COLOR = '#b9b2a8';
 const WALL_COLOR = '#eeebe5';
@@ -42,12 +42,14 @@ interface Edge {
 type Selection = { kind: 'part'; id: string } | { kind: 'exhibit'; id: string } | null;
 
 export interface SelectionInfo {
-  /** 例：「床 1×1m」「壁 10m」「作品：First Light」 */
-  label: string;
-  /** 例：「x -5〜5, z -4〜4」 */
-  where: string;
-  /** 作品なら「移動」を出す */
-  movable: boolean;
+  /** 例：「床」「壁」・作品の名前 */
+  title: string;
+  /** 作品・置き物なら名前を変えられ、「移動」を出す */
+  exhibit: boolean;
+  /** 床に置く物（回せる） */
+  rotatable: boolean;
+  /** 壁・床なら色を変えられる（今の色） */
+  color?: string;
 }
 
 export interface Editor {
@@ -63,6 +65,12 @@ export interface Editor {
   moveSelected(): void;
   /** ライブラリの作品を置き始める（作品の道具。TMS 47） */
   placeAsset(assetId: string): void;
+  /** 選んだ作品の名前を変える */
+  renameSelected(title: string): void;
+  /** 選んだ床の物を 45° 回す（R キー） */
+  rotateSelected(): void;
+  /** 選んだ壁・床の色を変える */
+  colorSelected(color: string): void;
   /** 選択・移動を取り消す（Esc） */
   clearSelection(): void;
   /** 部屋を作り直したあとに呼ぶ（選択の強調を付け直す） */
@@ -214,7 +222,8 @@ export function createEditor(opts: EditorOptions): Editor {
     if (!p) return null;
     const px = snap(p.x);
     const pz = snap(p.z);
-    const collider = createCollider(doc(), [], asset.size[0] * 0.6);
+    // 台座・置き物の大きさの半分を体の半径にして、壁に重ならず床からはみ出さない場所だけ（ラグは床の上ならどこでも）
+    const collider = createCollider(doc(), [], asset.walkable ? 0.01 : Math.max(...(asset.footprint ?? [asset.size[0] * 1.2])) * 0.5);
     return { position: [px, 0, pz], rotationY, blocked: !collider.canStand(px, pz) };
   }
 
@@ -309,12 +318,12 @@ export function createEditor(opts: EditorOptions): Editor {
       const part = d.objects.find((p) => p.id === target.id);
       if (!part) return;
       d.objects = d.objects.filter((p) => p.id !== target.id);
-      opts.onMessage(`${part.type === 'floor' ? '床' : '壁'}を削除しました`);
+
     } else {
       const ex = d.exhibits.find((e) => e.id === target.id);
       if (!ex) return;
       d.exhibits = d.exhibits.filter((e) => e.id !== target.id);
-      opts.onMessage(`作品「${ex.title ?? findAsset(ex.assetId)?.title ?? ''}」を削除しました`);
+
     }
     if (selection?.id === target.id) select(null);
     hoveredId = null;
@@ -351,7 +360,7 @@ export function createEditor(opts: EditorOptions): Editor {
     updatePlacing(x, y);
     const { asset, existingId, pose } = placing;
     if (!pose || pose.blocked) {
-      return opts.onMessage(asset.mount === 'wall' ? '作品は壁の表面に置けます（作品より短い壁には置けません）' : '台座が床からはみ出すか、壁に重なります');
+      return opts.onMessage(asset.mount === 'wall' ? '壁に置いてください' : 'ここには置けません');
     }
     const d = doc();
     let id = existingId;
@@ -359,11 +368,11 @@ export function createEditor(opts: EditorOptions): Editor {
       const ex = d.exhibits.find((e) => e.id === existingId)!;
       ex.position = pose.position;
       ex.rotationY = pose.rotationY;
-      opts.onMessage(`「${asset.title}」を動かしました`);
+
     } else {
       id = uniqueId(`ex-${asset.id}`, d.exhibits.map((e) => e.id));
       d.exhibits.push({ id, assetId: asset.id, type: asset.type, mount: asset.mount, position: pose.position, rotationY: pose.rotationY });
-      opts.onMessage(`「${asset.title}」を置きました`);
+
     }
     placing = null;
     exhibitPreview.visible = false;
@@ -384,6 +393,8 @@ export function createEditor(opts: EditorOptions): Editor {
     floor: '床：クリックでマスに床を置く',
     wall: '壁：マスの境目に近づけてクリックで壁を置く',
     exhibit: '作品：右の一覧から作品を選ぶ',
+    object: '置き物：右の一覧から選ぶ',
+    style: '雰囲気：右で色と光を選ぶ',
     delete: '削除：クリックした床・壁・作品を消す',
   };
 
@@ -423,12 +434,12 @@ export function createEditor(opts: EditorOptions): Editor {
       if (placing) return commitPlacing(x, y);
       if (tool === 'floor' || tool === 'wall') {
         const p = groundPoint(x, y);
-        if (!p) return opts.onMessage('グリッド（12×12マス）の外には置けません');
+        if (!p) return opts.onMessage('ここには置けません');
         const d = doc();
         const ids = d.objects.map((o) => o.id);
         if (tool === 'floor') {
           const c = snapCell(p);
-          if (floorAt(c)) return opts.onMessage('このマスにはもう床があります');
+          if (floorAt(c)) return opts.onMessage('もう床があります');
           d.objects.push({
             id: uniqueId(`floor-${c.x}_${c.z}`, ids),
             type: 'floor',
@@ -438,7 +449,7 @@ export function createEditor(opts: EditorOptions): Editor {
           });
         } else {
           const e = snapEdge(p);
-          if (wallAt(e)) return opts.onMessage('この境目にはもう壁があります');
+          if (wallAt(e)) return opts.onMessage('もう壁があります');
           const [mx, mz] = edgeMid(e);
           d.objects.push({
             id: uniqueId(`wall-${e.axis}${e.line}_${e.from}`, ids),
@@ -452,7 +463,8 @@ export function createEditor(opts: EditorOptions): Editor {
         api.hover(x, y); // 置いた場所は「もうある」の赤に変わる
         return;
       }
-      if (tool === 'exhibit') return opts.onMessage('右の一覧から置く作品を選んでください');
+      if (tool === 'exhibit' || tool === 'object') return opts.onMessage('右の一覧から選んでください');
+      if (tool === 'style') return;
       const target = pickAny(x, y);
       if (tool === 'delete') {
         if (target) remove(target);
@@ -468,6 +480,27 @@ export function createEditor(opts: EditorOptions): Editor {
       const ex = doc().exhibits.find((e) => e.id === selection!.id);
       const asset = ex && findAsset(ex.assetId);
       if (asset) beginPlacing(asset, ex!.id);
+    },
+    rotateSelected() {
+      if (selection?.kind !== 'exhibit') return;
+      const ex = doc().exhibits.find((e) => e.id === selection!.id);
+      if (!ex || ex.mount !== 'floor') return;
+      ex.rotationY = Math.round(((ex.rotationY + Math.PI / 4) % (Math.PI * 2)) * 10000) / 10000;
+      opts.onChange();
+    },
+    colorSelected(color) {
+      if (selection?.kind !== 'part') return;
+      const part = parts().find((p) => p.id === selection!.id);
+      if (!part) return;
+      part.color = color;
+      opts.onChange();
+    },
+    renameSelected(title) {
+      if (selection?.kind !== 'exhibit') return;
+      const ex = doc().exhibits.find((e) => e.id === selection!.id);
+      if (!ex) return;
+      ex.title = title.slice(0, 60);
+      opts.onChange();
     },
     placeAsset(assetId) {
       const asset = findAsset(assetId);
@@ -512,15 +545,10 @@ function describeTarget(t: Cell | Edge) {
 const fmt = (v: number) => String(Math.round(v * 100) / 100);
 
 function describePart(part: RoomPart): SelectionInfo {
-  const [x, , z] = part.position;
   const [w, , d] = part.size;
-  const where = `x ${fmt(x - w / 2)}〜${fmt(x + w / 2)}, z ${fmt(z - d / 2)}〜${fmt(z + d / 2)}`;
-  const label = part.type === 'floor' ? `床 ${fmt(w)}×${fmt(d)}m` : `壁 ${fmt(Math.max(w, d))}m`;
-  return { label, where, movable: false };
+  return { title: part.type === 'floor' ? `床 ${fmt(w)}×${fmt(d)}m` : `壁 ${fmt(Math.max(w, d))}m`, exhibit: false, rotatable: false, color: part.color ?? '' };
 }
 
 function describeExhibit(ex: ExhibitPlacement, asset: ExhibitAsset): SelectionInfo {
-  const [x, y, z] = ex.position;
-  const where = `${asset.mount === 'wall' ? '壁' : '床'} ・ x ${fmt(x)}, ${asset.mount === 'wall' ? `高さ ${fmt(y)}, ` : ''}z ${fmt(z)}`;
-  return { label: ex.title ?? asset.title, where, movable: true };
+  return { title: ex.title ?? asset.title, exhibit: true, rotatable: asset.mount === 'floor' };
 }

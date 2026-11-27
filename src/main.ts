@@ -1,11 +1,12 @@
-// エントリーポイント：データ（data）・3D（scene）・画面（ui）・編集（editor）をつなぐだけ。各層の責務は docs/ARCHITECTURE.md。
+// エントリーポイント：データ（data）・保存（storage）・3D（scene）・画面（ui）・編集（editor）をつなぐだけ。各層の責務は docs/ARCHITECTURE.md。
 // 画面は URL のハッシュで切り替える（公開先のリライト機能に頼らない）:
-//   （なし）タイトル / #/view/<kind> 鑑賞 / #/edit/<kind> 編集（kind = sample | empty | continue）
+//   （なし）タイトル / #/view/sample サンプル（見るだけ）/ #/view/m/<id>・#/edit/m/<id> 自分の美術館
 import './styles.css';
 import type { MuseumDocument } from './types/museum';
 import { sampleMuseum } from './data/sampleMuseum';
 import { emptyRoom } from './data/emptyRoom';
-import { createRoomScene, disposeRoomScene, roomBounds, type RoomScene } from './scene/room';
+import { createRoomScene, disposeRoomScene, roomBounds, DEFAULT_STYLE, type RoomScene } from './scene/room';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { createViewer } from './scene/viewer';
 import { attachFirstPersonControls } from './scene/firstPersonControls';
 import { attachEditCamera } from './scene/editCamera';
@@ -17,9 +18,11 @@ import { updateTitleCamera } from './scene/titleCamera';
 import { createEditor } from './editor/editor';
 import { buildExhibits, exhibitObstacles, pickExhibit, type ExhibitSet, type ExhibitView } from './exhibits/exhibitObjects';
 import { initHtmlExhibits, setHtmlInteractive } from './exhibits/htmlExhibit';
-import { LIBRARY, findAsset } from './data/library';
+import { allAssets, allObjects, findAsset } from './data/library';
 import { exportFileName, parseMuseum, serializeMuseum } from './data/museumJson';
-import { mountShell, type EditTool, type StartKind, type ViewMode } from './ui/shell';
+import { listMuseums, loadMuseum, migrateLegacy, newMuseumId, removeMuseum, saveMuseum } from './storage/museums';
+import { addOwnAsset, loadOwnAssets, removeOwnAsset } from './storage/userAssets';
+import { mountShell, type EditTool, type MenuAction, type ViewMode } from './ui/shell';
 
 const app = document.querySelector<HTMLDivElement>('#app');
 if (!app) throw new Error('app not found');
@@ -42,51 +45,28 @@ const resolveAsset =
       }
     : findAsset;
 
-// ---- ブラウザ内の保存（TMS 57）----
-// 編集するたびに、作業中の美術館を localStorage に保存する（JSON の書き出しと同じ形）。タイトルの「続きから」で開く。
-const AUTOSAVE_KEY = 'museum.autosave.v1';
-function loadAutosave(): MuseumDocument | null {
-  try {
-    const raw = localStorage.getItem(AUTOSAVE_KEY);
-    if (!raw) return null;
-    const r = parseMuseum(raw); // 読み込みと同じ検査（壊れていれば「続きから」を出さない）
-    return r.ok ? r.doc : null;
-  } catch {
-    return null; // 保存領域が使えない（プライベートブラウズ・無効化など）
-  }
-}
-function saveAutosave(doc: MuseumDocument): boolean {
-  try {
-    localStorage.setItem(AUTOSAVE_KEY, serializeMuseum(doc));
-    return true;
-  } catch {
-    return false; // 容量超過・保存領域が使えない
-  }
-}
+// ---- 自分の美術館の保存（TMS 57。複数持てる：storage/museums.ts）----
 let saveTimer = 0;
-/** 編集の直後に何度も書かないよう、少し待ってから保存する */
+let saveFailed = false;
+/** 編集の直後に何度も書かないよう、少し待ってから保存する。失敗したときだけ知らせる */
 function scheduleSave() {
-  shell.setSaveStatus('保存中…');
   clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
-    if (!work) return;
-    shell.setSaveStatus(saveAutosave(work.doc) ? 'ブラウザに保存済み' : '保存できませんでした（JSON で書き出してください）');
+    if (!work?.own) return;
+    const ok = saveMuseum(work.doc);
+    if (!ok && !saveFailed) shell.toast('保存できませんでした。メニューから書き出してください');
+    saveFailed = !ok;
   }, 400);
 }
 
-function museumFor(kind: StartKind): MuseumDocument {
-  if (kind === 'empty') return emptyRoom;
-  if (kind === 'continue') return loadAutosave() ?? sampleMuseum;
-  return sampleMuseum;
-}
-
-const TYPE_LABEL_SHORT: Record<string, string> = {
+const TYPE_LABEL: Record<string, string> = {
   image: '画像',
   text: '文章',
   video: '動画',
   audio: '音',
   glb: '3D',
   'interactive-html': 'HTML',
+  object: 'もの',
 };
 
 // ---- 状態 ----
@@ -98,8 +78,8 @@ const roomOptions = { shadowMapSize: window.matchMedia('(pointer: coarse)').matc
 
 type Screen = 'title' | ViewMode;
 let screen: Screen = 'title';
-/** 作業中の美術館。元データ（sampleMuseum など）を書き換えないよう複製して持つ（TMS 39） */
-let work: { kind: StartKind; doc: MuseumDocument } | null = null;
+/** 開いている美術館。key は 'sample' か自分の美術館の id。サンプルは複製して持ち、書き換えない（TMS 39） */
+let work: { key: string; own: boolean; doc: MuseumDocument } | null = null;
 let tool: EditTool = 'select';
 
 let room: RoomScene = createRoomScene(sampleMuseum, roomOptions);
@@ -111,23 +91,56 @@ const overlay = createEditOverlay(); // グリッドなど編集用の表示（T
 room.scene.add(overlay.group);
 
 const shell = mountShell(app, {
-  // 「空の部屋から作る」は編集モードで始める（PC のみ）。ほかは鑑賞から
-  onStart: (kind) => (location.hash = `#/${kind === 'empty' && !editUnavailable.matches ? 'edit' : 'view'}/${kind}`),
+  onNew: () => createMuseum(structuredClone(emptyRoom), '無題の美術館'),
+  onSample: () => (location.hash = '#/view/sample'),
+  onOpenMuseum: (id) => (location.hash = `#/view/m/${id}`),
   onHome: () => (location.hash = ''),
   onMove: (input) => controls.setMoveInput(input),
-  // 鑑賞⇔編集は履歴に積まない（「戻る」でタイトルへ戻れるように）
-  onModeChange: (mode) => work && location.replace(`#/${mode}/${work.kind}`),
+  onModeChange: (mode) => changeMode(mode),
   onTool: (next) => setTool(next),
   onDeleteSelected: () => editor.deleteSelected(),
   onClearSelection: () => editor.clearSelection(),
   onMoveSelected: () => editor.moveSelected(),
+  onRenameSelected: (title) => editor.renameSelected(title),
   onPickAsset: (id) => editor.placeAsset(id),
+  onUpload: (file) => void uploadAsset(file),
+  onRemoveAsset: (id) => void removeAsset(id),
   onInfoClosed: () => endInspect(),
   onInspectZoom: (delta) => inspect.zoom(delta),
   onMenu: (action) => runMenu(action),
   onImportFile: (file) => void importFile(file),
+  onUploadObject: (file) => void uploadObject(file),
+  onRotateSelected: () => editor.rotateSelected(),
+  onColorSelected: (color) => editor.colorSelected(color),
+  onStyle: (partial) => applyStyle(partial),
+  onRename: (title) => {
+    if (!work?.own) return;
+    work.doc.title = title;
+    scheduleSave();
+  },
 });
-shell.setMenuItems(['export', 'import', 'share', 'quality', 'help']);
+
+// ---- 自分の美術館をつくる・開く ----
+/** 新しい自分の美術館を作って編集で開く（空の部屋・サンプルの複製・読み込んだ JSON） */
+function createMuseum(doc: MuseumDocument, title: string, mode: ViewMode = 'edit', rename = true) {
+  const next = { ...doc, id: newMuseumId(), title };
+  if (!saveMuseum(next)) shell.toast('このブラウザに保存できません（JSON で書き出せば残せます）');
+  work = { key: next.id, own: true, doc: next };
+  viewPoseReady = false;
+  renameOnOpen = rename;
+  location.hash = `#/${editUnavailable.matches ? 'view' : mode}/m/${next.id}`;
+}
+let renameOnOpen = false;
+
+/** 鑑賞⇔編集。サンプルを編集するときは、複製して自分の美術館にする */
+function changeMode(mode: ViewMode) {
+  if (!work) return;
+  if (!work.own) {
+    if (mode === 'edit') createMuseum(structuredClone(work.doc), `${work.doc.title}のコピー`, 'edit', false);
+    return;
+  }
+  location.replace(`#/${mode}/m/${work.key}`); // 履歴に積まない（「戻る」でタイトルへ）
+}
 
 const viewer = createViewer(shell.viewport, room.scene, room.camera, (dt, t) => {
   if (screen === 'title') updateTitleCamera(room.camera, t, reducedMotion.matches);
@@ -158,7 +171,7 @@ let quality: Quality = savedQuality() ?? (window.matchMedia('(pointer: coarse)')
 function setQuality(next: Quality, announce = false) {
   quality = next;
   viewer.setQuality({ pixelRatio: next === 'light' ? 1 : Math.min(window.devicePixelRatio, 2), shadows: next === 'standard' });
-  shell.setMenuLabel('quality', `画質：${next === 'light' ? '軽量' : '標準'}（切り替える）`);
+  shell.setMenuLabel('quality', next === 'light' ? '軽量モード ✓' : '軽量モード');
   show(shownDoc, true); // 影の有無で材質を作り直す
   if (announce) {
     try {
@@ -166,7 +179,7 @@ function setQuality(next: Quality, announce = false) {
     } catch {
       /* 覚えられない環境では今回だけ */
     }
-    shell.toast(next === 'light' ? '画質を「軽量」にしました（解像度 1 倍・影なし）' : '画質を「標準」にしました');
+
   }
 }
 
@@ -174,9 +187,9 @@ function setQuality(next: Quality, announce = false) {
 initHtmlExhibits(viewer.canvas, viewer.renderer);
 setQuality(quality); // 最初の部屋もここで作り直す（HTML 作品を入れる）
 // HTML 作品のスライダーで展示室の明るさを変える（パネルが canvas の中でも、代替表示のダイアログの中でも届く）
-const BASE_AMBIENT = room.lights.ambient.intensity;
 document.addEventListener('museum:light', (e) => {
-  room.lights.ambient.intensity = BASE_AMBIENT * (0.25 + (1.5 * (e as CustomEvent<number>).detail) / 100);
+  const base = (room.lights.ambient.userData.base as number) ?? 1.5; // 雰囲気の明るさを基準にする
+  room.lights.ambient.intensity = base * (0.25 + (1.5 * (e as CustomEvent<number>).detail) / 100);
 });
 watchExhibitLoads(); // 最初の部屋の分
 const controls = attachFirstPersonControls(viewer.canvas, () => room.camera, {
@@ -209,31 +222,19 @@ function endInspect() {
 }
 
 // ---- 作品をクリックすると作品情報パネル（TMS 46）----
-const TYPE_LABEL: Record<string, string> = {
-  image: '画像',
-  text: '文章',
-  video: '動画',
-  audio: '音',
-  glb: '3D',
-  'interactive-html': 'HTML作品',
-};
 function exhibitInfo(view: ExhibitView) {
   const { placement: p, asset: a } = view;
-  const no = String(work!.doc.exhibits.findIndex((e) => e.id === p.id) + 1).padStart(3, '0');
   return {
-    eyebrow: `Exhibit / ${no} ・ ${TYPE_LABEL[a.type]}`,
     title: p.title ?? a.title,
-    meta:
-      [a.author, a.year].filter(Boolean).join(' ・ ') +
-      (view.status === 'error' && view.errorText ? `\n⚠ ${view.errorText}` : view.stateText ? `\n${view.stateText()}` : ''),
+    meta: [a.author, a.year].filter(Boolean).join(' ・ '),
     // 文章作品は全文も読めるようにする（壁のパネルに収まらない分も）
-    description: (p.description ?? a.description) + (a.type === 'text' && a.body ? `\n\n${a.body}` : ''),
-    interactive: a.type === 'interactive-html',
+    description: [p.description ?? a.description, a.type === 'text' ? a.body : ''].filter(Boolean).join('\n\n'),
+    warning: view.status === 'error' ? '読み込めませんでした' : undefined,
   };
 }
 function openExhibit(x: number, y: number) {
   const view = pickExhibit(exhibits, room.camera, viewer.canvas, x, y, [...room.parts.values()]);
-  if (!view) return;
+  if (!view || view.asset.type === 'object') return; // 置き物は解説なし
   view.activate?.(); // 動画の再生・一時停止、音の再生・停止など
   shell.showExhibitInfo(exhibitInfo(view));
   if (view.asset.type === 'glb') startInspect(view);
@@ -257,11 +258,74 @@ const editor = createEditor({
     scheduleSave(); // TMS 57
   },
   onSelect: (info) => shell.showInspector(info),
-  onHint: (text) => shell.setEditHint(text),
+  onHint: () => {}, // 常に出す説明はやめた（ヘルプと初回の 1 行だけ）
   onMessage: (text) => shell.toast(text),
 });
 overlay.group.add(editor.group);
-shell.setLibrary(LIBRARY.map((a) => ({ id: a.id, title: a.title, kind: `${TYPE_LABEL_SHORT[a.type]} ・ ${a.mount === 'wall' ? '壁' : '床'}` })));
+
+// ---- 作品ライブラリと、自分の作品の追加 ----
+function refreshLibrary() {
+  shell.setLibrary(allAssets().map((a) => ({ id: a.id, title: a.title, kind: TYPE_LABEL[a.type], own: !!a.own })));
+  shell.setObjectLibrary(allObjects().map((a) => ({ id: a.id, title: a.title, kind: a.own ? '3D' : '', own: !!a.own })));
+}
+
+/** 自分の 3D モデルを置き物として追加する。大きさを測るため一度読み込む（部屋に収まるよう長い辺を 0.2〜4m に） */
+async function uploadObject(file: File) {
+  if (!file.name.toLowerCase().endsWith('.glb')) return shell.toast('.glb を選んでください');
+  let size: [number, number] = [1, 1];
+  let footprint: [number, number] = [1, 1];
+  const url = URL.createObjectURL(file);
+  try {
+    const gltf = await new GLTFLoader().loadAsync(url);
+    const v = new THREE.Box3().setFromObject(gltf.scene).getSize(new THREE.Vector3());
+    const longest = Math.max(v.x, v.y, v.z) || 1;
+    const k = longest > 4 ? 4 / longest : longest < 0.2 ? 0.2 / longest : 1;
+    const r = (x: number) => Math.round(x * k * 100) / 100;
+    size = [r(Math.max(v.x, v.z)), r(v.y)];
+    footprint = [r(v.x), r(v.z)];
+  } catch {
+    URL.revokeObjectURL(url);
+    return shell.toast('3D モデルを読めませんでした');
+  }
+  URL.revokeObjectURL(url);
+  const res = await addOwnAsset(file, { size, footprint });
+  if (!res.ok) return shell.toast(res.error);
+  refreshLibrary();
+  editor.placeAsset(res.id);
+  shell.toast(`「${res.title}」を置く場所をクリック`);
+}
+
+/** 雰囲気（色と光）を変える。壁・床の色を選んだら、その種類のパーツごとの色は外して全体の色にそろえる */
+function applyStyle(partial: Partial<typeof DEFAULT_STYLE>) {
+  if (!work?.own) return;
+  const doc = work.doc;
+  doc.style = { ...(doc.style ?? DEFAULT_STYLE), ...partial };
+  for (const p of doc.objects) {
+    if ((partial.wall && p.type === 'wall') || (partial.floor && p.type === 'floor')) delete p.color;
+  }
+  show(doc, true);
+  editor.afterRebuild();
+  shell.setStyle(doc.style);
+  scheduleSave();
+}
+async function uploadAsset(file: File) {
+  const r = await addOwnAsset(file);
+  if (!r.ok) return shell.toast(r.error);
+  refreshLibrary();
+  editor.placeAsset(r.id);
+  shell.toast(`「${r.title}」を置く場所をクリック`);
+}
+async function removeAsset(id: string) {
+  const a = findAsset(id);
+  if (!a || !confirm(`「${a.title}」をライブラリから消しますか？ 飾ってある分も見えなくなります。`)) return;
+  await removeOwnAsset(id);
+  if (work?.own) {
+    work.doc.exhibits = work.doc.exhibits.filter((e) => e.assetId !== id);
+    scheduleSave();
+  }
+  refreshLibrary();
+  if (work) show(work.doc, true);
+}
 
 /** force: 同じ美術館でも作り直す（編集でデータを書き換えたとき） */
 /** 3D モデルなどを読み込み終えたら影を描き直す（影は部屋が変わったときだけ描くため。TMS 35・51）。失敗は 1 回だけ知らせる（TMS 63） */
@@ -292,35 +356,31 @@ function show(doc: MuseumDocument, force = false) {
   viewer.setScene(room.scene, room.camera);
 }
 
-// ---- メニュー：JSON の書き出し・読み込み（TMS 55・56）----
-function runMenu(action: string) {
+// ---- メニュー（TMS 55〜64）----
+function runMenu(action: MenuAction) {
   if (action === 'export' && work) exportJson(work.doc);
   if (action === 'share') void copyShareUrl();
   if (action === 'help') shell.openHelp();
   if (action === 'quality') setQuality(quality === 'standard' ? 'light' : 'standard', true);
-}
-
-// ---- 共有用のデモ URL（TMS 59）----
-/**
- * サンプル美術館を鑑賞で開く URL（例 https://…/#/view/sample）。タイトルを飛ばして直接展示室に入る。
- * 空の部屋は #/view/empty。自分で編集した美術館はこの端末のブラウザにしか無いので、URL ではなく JSON で渡してもらう。
- */
-function shareUrl(kind: StartKind) {
-  return `${location.origin}${location.pathname}#/view/${kind === 'empty' ? 'empty' : 'sample'}`;
-}
-async function copyShareUrl() {
-  const kind = work?.kind ?? 'sample';
-  const url = shareUrl(kind);
-  const note = kind === 'continue' ? '（編集した美術館は共有されません。渡すときは JSON で書き出してください）' : '';
-  try {
-    await navigator.clipboard.writeText(url);
-    shell.toast(`共有用の URL をコピーしました：${url}${note}`);
-  } catch {
-    shell.toast(`共有用の URL：${url}${note}`); // コピーできない環境では表示だけ
+  if (action === 'delete' && work?.own && confirm(`「${work.doc.title}」を削除しますか？ 元に戻せません。`)) {
+    removeMuseum(work.key);
+    work = null;
+    location.hash = '';
   }
 }
 
-/** 作業中の美術館を JSON ファイルとして保存させる（ブラウザのダウンロード） */
+/** サンプル美術館を直接開く URL（TMS 59）。自分の美術館はこのブラウザにしか無いので、渡すときは書き出す */
+async function copyShareUrl() {
+  const url = `${location.origin}${location.pathname}#/view/sample`;
+  try {
+    await navigator.clipboard.writeText(url);
+    shell.toast('URL をコピーしました');
+  } catch {
+    shell.toast(url);
+  }
+}
+
+/** 開いている美術館を JSON ファイルとして保存させる（ブラウザのダウンロード） */
 function exportJson(doc: MuseumDocument) {
   const url = URL.createObjectURL(new Blob([serializeMuseum(doc)], { type: 'application/json' }));
   const a = document.createElement('a');
@@ -328,22 +388,15 @@ function exportJson(doc: MuseumDocument) {
   a.download = exportFileName(doc);
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-  shell.toast(`「${a.download}」を書き出しました`);
 }
 
-/** 選ばれた JSON ファイルを確かめて開く。開いたものはブラウザに保存し、「続きから」として扱う */
+/** 選ばれた JSON を確かめて、新しい自分の美術館として開く */
 async function importFile(file: File) {
-  if (file.size > 1_000_000) return shell.toast('ファイルが大きすぎます（1MB まで）');
+  if (file.size > 1_000_000) return shell.toast('大きすぎます（1MB まで）');
   const r = parseMuseum(await file.text());
   if (!r.ok) return shell.toast(`読み込めませんでした：${r.error}`);
-  saveAutosave(r.doc);
-  work = { kind: 'continue', doc: r.doc };
-  const mode = screen === 'edit' ? 'edit' : 'view';
-  const next = `#/${mode}/continue`;
-  forceFresh = true;
-  if (location.hash === next) route();
-  else location.replace(next);
-  shell.toast(r.warnings.length ? `「${r.doc.title}」を開きました（${r.warnings.length} 件は飛ばしました：${r.warnings[0]}）` : `「${r.doc.title}」を開きました`);
+  createMuseum(r.doc, r.doc.title, 'view', false);
+  if (r.warnings.length) shell.toast(`${r.warnings.length} 点はこの端末に無いため飛ばしました`);
 }
 
 function setTool(next: EditTool) {
@@ -358,42 +411,49 @@ function resetEditCamera(doc: MuseumDocument) {
   else editCamera.reset([(b.minX + b.maxX) / 2, (b.minZ + b.maxZ) / 2], Math.max(b.maxX - b.minX, b.maxZ - b.minZ));
 }
 
+function goTitle() {
+  show(sampleMuseum); // タイトルの背景は常にサンプル美術館
+  const fromViewer = screen !== 'title';
+  screen = 'title';
+  controls.setEnabled(false);
+  editCamera.setEnabled(false);
+  setHtmlInteractive(false);
+  overlay.setVisible(false);
+  overlay.updateCutaway(room, room.camera, false);
+  editor.clearSelection();
+  endInspect();
+  shell.showExhibitInfo(null);
+  shell.showTitle({ museums: listMuseums(), canCreate: !editUnavailable.matches, focus: fromViewer });
+}
+
 function route() {
-  const m = location.hash.match(/^#\/(view|edit)\/(sample|empty|continue)$/);
-  if (!m) {
-    show(sampleMuseum); // タイトルの背景は常にサンプル美術館
-    const fromViewer = screen !== 'title';
-    screen = 'title';
-    controls.setEnabled(false);
-    editCamera.setEnabled(false);
-    setHtmlInteractive(false);
-    overlay.setVisible(false);
-    overlay.updateCutaway(room, room.camera, false);
-    editor.clearSelection();
-    endInspect();
-    shell.showExhibitInfo(null);
-    shell.showTitle({ canContinue: loadAutosave() !== null, focus: fromViewer });
-    return;
+  // 前の版の URL（#/view/empty・#/view/continue など）
+  const legacy = location.hash.match(/^#\/(view|edit)\/(empty|continue)$/);
+  if (legacy) {
+    const latest = listMuseums()[0];
+    return location.replace(legacy[2] === 'continue' && latest ? `#/view/m/${latest.id}` : '#/view/sample');
   }
-
-  const kind = m[2] as StartKind;
-  const mode = m[1] as ViewMode;
+  const m = location.hash.match(/^#\/(view|edit)\/(?:(sample)|m\/([\w-]{1,64}))$/);
+  if (!m) return goTitle();
+  const key = m[2] ?? m[3];
+  let mode = m[1] as ViewMode;
+  if (key === 'sample') mode = 'view'; // サンプルは見るだけ（編集は複製してから）
   if (mode === 'edit' && editUnavailable.matches) {
-    // スマホ・狭い画面で編集の URL を開いたときは鑑賞にする
-    shell.toast('編集は PC のブラウザで行えます。鑑賞モードで開きました');
-    redirecting = true; // 置き換え後の表示は「画面の切り替え」ではないので、フォーカスを動かさない
-    location.replace(`#/view/${kind}`);
-    return;
+    shell.toast('編集は PC で');
+    redirecting = true;
+    return location.replace(`#/view/m/${key}`);
   }
 
-  // 読み込んだ直後（forceFresh）は、作業中の美術館はそのままで視点などを初めから
-  const fresh = forceFresh || !work || work.kind !== kind;
-  if (!work || work.kind !== kind) {
-    work = { kind, doc: structuredClone(museumFor(kind)) };
+  const fresh = !work || work.key !== key;
+  if (fresh) {
+    const doc = key === 'sample' ? structuredClone(sampleMuseum) : loadMuseum(key);
+    if (!doc) {
+      shell.toast('見つかりませんでした');
+      return location.replace('#');
+    }
+    work = { key, own: key !== 'sample', doc };
     viewPoseReady = false;
   }
-  forceFresh = false;
-  if (fresh) shell.setSaveStatus(kind === 'continue' ? 'ブラウザに保存済み' : ''); // サンプル・空の部屋は編集したら保存する
   const doc = work!.doc;
   show(doc);
 
@@ -403,41 +463,48 @@ function route() {
   screen = mode;
   shell.showExhibitInfo(null);
   endInspect();
+  shell.setMenuItems(work!.own ? ['export', 'import', 'quality', 'help', 'delete'] : ['export', 'import', 'share', 'quality', 'help']);
   if (mode === 'view') {
     editor.clearSelection();
     editCamera.setEnabled(false);
     overlay.setVisible(false);
     overlay.updateCutaway(room, room.camera, false);
-    // 部屋の手前から奥を向いて立つ。編集の URL から入って初めて鑑賞にしたときも（TMS 65 で発見：原点のまま壁に重なっていた）
+    // 部屋の手前から奥を向いて立つ（編集の URL から入って初めて鑑賞にしたときも。TMS 65）
     if (fresh || prev === 'title' || !viewPoseReady) controls.reset(room.spawn);
     viewPoseReady = true;
-    controls.setEnabled(true); // 編集から戻ったときは、編集前に立っていた場所から続ける
-    setHtmlInteractive(true); // HTML 作品は鑑賞中だけ直接操作できる
+    controls.setEnabled(true);
+    setHtmlInteractive(true);
   } else {
     controls.setEnabled(false);
-    setHtmlInteractive(false); // 編集中は HTML 作品も選んで動かす対象
+    setHtmlInteractive(false);
     if (fresh || prev !== 'edit') resetEditCamera(doc);
     editCamera.setEnabled(true);
     overlay.setVisible(true);
-    shell.setAvailableTools(['select', 'floor', 'wall', 'exhibit', 'delete']);
+    shell.setAvailableTools(['select', 'floor', 'wall', 'exhibit', 'object', 'style', 'delete']);
+    shell.setStyle(doc.style ?? DEFAULT_STYLE);
     setTool(tool);
   }
-  shell.showViewer({ title: doc.title, mode, canEdit: !editUnavailable.matches, focus: fromTitle });
-  shell.showGuide(mode, window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 700); // 初めてのときだけ（TMS 62）
-  // 作品の無い部屋を鑑賞で開いたとき（TMS 63）
-  if (mode === 'view' && doc.exhibits.length === 0) {
-    shell.toast(editUnavailable.matches ? 'この部屋にはまだ作品がありません' : 'この部屋にはまだ作品がありません。上の「編集」→ 左の「作品」から飾れます');
+  shell.showViewer({ title: doc.title, mode, canEdit: !editUnavailable.matches, canRename: work!.own, focus: fromTitle });
+  shell.showGuide(mode, window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 700);
+  if (mode === 'view' && doc.exhibits.length === 0) shell.toast('まだ作品がありません');
+  if (mode === 'edit' && renameOnOpen) {
+    renameOnOpen = false;
+    shell.startRename(); // 作ったばかりの美術館は、まず名前を付けられるように
   }
 }
 
 let started = false; // 最初の表示ではフォーカスを動かさない
 let redirecting = false;
-let forceFresh = false;
 /** 今の美術館で、鑑賞の立ち位置をもう決めたか（編集から戻ったときは立っていた場所から続けるため） */
 let viewPoseReady = false;
-window.addEventListener('hashchange', route);
-route();
-started = true;
+// 前の版の保存を引き継ぎ、自分の作品（IndexedDB）を読み込んでから最初の画面を出す
+migrateLegacy();
+void loadOwnAssets().then(() => {
+  refreshLibrary();
+  window.addEventListener('hashchange', route);
+  route();
+  started = true;
+});
 
 // 開発時だけ：自動確認（Claude in Chrome）で状態を読むための入口。本番ビルドには含まれない
 if (import.meta.env.DEV) {

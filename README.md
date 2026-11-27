@@ -5,7 +5,9 @@
 
 「デプロイナウコンテスト byGMOペパボ」応募作品（ロリポップ！デプロイナウで静的配信）。
 
-> **現在の状態:** HTML in Canvas の技術検証が完了（TMS 22〜29）。タイトル画面からサンプル美術館・空の部屋に入れる（TMS 33）。展示室は床・壁（高さ3m）・天井と、固定の照明・影を持つ（TMS 34〜35）。鑑賞は一人称で、ドラッグ・Q/E で見回し、WASD・矢印キー（スマホは移動ボタン）で歩ける。壁・展示台は通り抜けない（TMS 36〜38）。PC では編集モードで床・壁を建て、同梱の作品（画像・文章・動画・音・3D・HTML）を飾れる（TMS 39〜54）。編集はブラウザに自動保存され、JSON で書き出し・読み込みできる（TMS 55〜57）。
+**公開URL：https://my-museum.lolipop-now.app/** （サンプル美術館を直接開く：https://my-museum.lolipop-now.app/#/view/sample）
+
+> **現在の状態:** HTML in Canvas の技術検証が完了（TMS 22〜29）。タイトル画面からサンプル美術館・空の部屋に入れる（TMS 33）。展示室は床・壁（高さ3m）・天井と、固定の照明・影を持つ（TMS 34〜35）。鑑賞は一人称で、ドラッグ・Q/E で見回し、WASD・矢印キー（スマホは移動ボタン）で歩ける。壁・展示台は通り抜けない（TMS 36〜38）。「美術館をつくる」で自分の美術館を作り（複数可・名前を付けられる）、床・壁を建て、同梱の作品や**自分のファイル（画像・動画・音・3D・文章）**を飾れる。作品と美術館はこのブラウザに保存し、JSON で書き出し・読み込みできる。
 
 | タイトル | 3D の壁の上の HTML 作品を操作 | 編集モード |
 |---|---|---|
@@ -89,6 +91,7 @@ npm run verify:dist  # dist/ を公開前に点検（tools/check-dist.mjs）
 npm run check:layers # フォルダ間の依存ルールを点検（tools/check-layers.mjs）
 npm test             # 計算部分の自動テスト（当たり判定など。tests/）
 npm run release      # check:layers + test + build + verify:dist（公開前はこれ）
+npm run deploy       # release してデプロイナウに公開（tools/deploy.sh。lolipop CLI とログインが必要）
 ```
 
 技術: TypeScript / Vite / Three.js。サーバーを持たない**静的サイト**として動く。

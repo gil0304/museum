@@ -18,7 +18,7 @@
 | 項目 | 内容 |
 |---|---|
 | `id` | 作品の id（例 `image-first-light`） |
-| `type` | `image` / `text` / `video` / `audio` / `glb` / `interactive-html` |
+| `type` | `image` / `text` / `video` / `audio` / `glb` / `interactive-html` / `object`（置き物：台座なし・解説なし。`model` が内蔵の形、無ければ `src` の GLB。`footprint` が当たり判定、`walkable` なら上を歩ける） |
 | `mount` | `wall`（壁に掛ける）/ `floor`（床に置く。台座付き） |
 | `title` `author` `year` `description` | 作品情報パネル（TMS 46）に出す |
 | `src` | 素材のパス（`public/` からの相対。例 `assets/images/first-light.jpg`）。文章・HTML 作品は無し |

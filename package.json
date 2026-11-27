@@ -15,7 +15,8 @@
     "check:layers": "node tools/check-layers.mjs",
     "release": "npm run check:layers && npm test && npm run sample:json && npm run build && npm run verify:dist",
     "test": "node --experimental-strip-types --no-warnings --test \"tests/*.test.mts\"",
-    "sample:json": "node --experimental-strip-types --no-warnings tools/export-sample.mts"
+    "sample:json": "node --experimental-strip-types --no-warnings tools/export-sample.mts",
+    "deploy": "sh tools/deploy.sh"
   },
   "dependencies": {
     "three": "^0.181.0"

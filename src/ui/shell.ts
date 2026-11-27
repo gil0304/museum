@@ -1,11 +1,13 @@
-// アプリの外枠（DOM）：全面の 3D ビュー、タイトル画面、鑑賞・編集の上部バー・ツールパレット・ヒント・通知。
+// アプリの外枠（DOM）：全面の 3D ビュー、タイトル画面、鑑賞・編集の上部バー・道具・パネル・通知。
 // three.js や scene には依存しない。操作は main.ts から渡されるコールバックで伝える。レイアウトは docs/DESIGN.md。
+// 文字は最小限：常に出しておく操作の説明・座標・保存状態は出さない（説明はヘルプと初回の 1 行だけ）。
 
-export type StartKind = 'sample' | 'empty' | 'continue';
-/** 鑑賞（一人称で歩く）/ 編集（斜め上から建てる・飾る）。TMS 39 */
+/** 鑑賞（一人称で歩く）/ 編集（斜め上から建てる・飾る） */
 export type ViewMode = 'view' | 'edit';
-/** 編集の道具（ツールパレット）。TMS 40〜42・47 */
-export type EditTool = 'select' | 'floor' | 'wall' | 'exhibit' | 'delete';
+/** 編集の道具 */
+export type EditTool = 'select' | 'floor' | 'wall' | 'exhibit' | 'object' | 'style' | 'delete';
+/** メニューの項目 */
+export type MenuAction = 'export' | 'import' | 'share' | 'quality' | 'help' | 'delete';
 
 /** 移動ボタンの入力（-1〜1）。forward は前が正、strafe は右が正 */
 export interface MoveInput {
@@ -14,134 +16,139 @@ export interface MoveInput {
 }
 
 export interface ShellOptions {
-  /** 体験開始ボタンが押された */
-  onStart(kind: StartKind): void;
-  /** ロゴが押された（タイトルに戻る） */
+  /** 「美術館をつくる」 */
+  onNew(): void;
+  /** 「サンプルを見る」 */
+  onSample(): void;
+  /** 自分の美術館を開く */
+  onOpenMuseum(id: string): void;
   onHome(): void;
-  /** 画面の移動ボタン（スマホ）を押している間の入力。離すと {0, 0}（TMS 37） */
   onMove(input: MoveInput): void;
-  /** 鑑賞 / 編集 の切り替えボタンが押された（TMS 39） */
   onModeChange(mode: ViewMode): void;
-  /** ツールパレットで道具が選ばれた */
   onTool(tool: EditTool): void;
-  /** 選択中のパーツを消す（情報パネルの削除ボタン・Delete / Backspace キー。TMS 42） */
   onDeleteSelected(): void;
-  /** 選択を解除する（情報パネルの閉じる・Esc） */
   onClearSelection(): void;
-  /** 選択中の作品を動かす（情報パネルの「移動」・M キー。TMS 47） */
   onMoveSelected(): void;
-  /** 作品ライブラリから作品を選んだ（作品の道具。TMS 47） */
+  /** 選んだ作品の名前を変えた */
+  onRenameSelected(title: string): void;
   onPickAsset(assetId: string): void;
-  /** 作品情報パネルが閉じられた（閉じる・Esc） */
+  /** 作品ライブラリの「＋」でファイルが選ばれた */
+  onUpload(file: File): void;
+  /** 自分の作品をライブラリから消す */
+  onRemoveAsset(assetId: string): void;
   onInfoClosed(): void;
-  /** 3D 作品を近くで見ている間の「寄る（-）/ 離れる（+）」（TMS 52） */
   onInspectZoom(delta: number): void;
-  /** 上部バーのメニュー（TMS 55〜64） */
   onMenu(action: MenuAction): void;
-  /** 「JSON を読み込む」でファイルが選ばれた（TMS 56） */
   onImportFile(file: File): void;
+  /** 美術館の名前を変えた */
+  onRename(title: string): void;
+  /** 置き物の一覧の「＋」で .glb が選ばれた */
+  onUploadObject(file: File): void;
+  /** 選んだ床の物を回す */
+  onRotateSelected(): void;
+  /** 選んだ壁・床の色 */
+  onColorSelected(color: string): void;
+  /** 雰囲気を変えた（変えた項目だけ） */
+  onStyle(style: Partial<StyleValue>): void;
 }
 
-/** メニューの項目 */
-export type MenuAction = 'export' | 'import' | 'share' | 'quality' | 'help';
+/** 雰囲気（色と光）。types/museum.ts の MuseumStyle と同じ形（ui は types に依存しない作りなので写し） */
+export interface StyleValue {
+  wall: string;
+  floor: string;
+  light: number;
+  warmth: number;
+}
 
-/** 作品ライブラリの一覧に出す 1 点 */
+/** 雰囲気のプリセット */
+const PRESETS: { label: string; style: StyleValue }[] = [
+  { label: 'ギャラリー', style: { wall: '#eeebe5', floor: '#b9b2a8', light: 1, warmth: 0 } },
+  { label: '白', style: { wall: '#f7f7f5', floor: '#e2dfd9', light: 1.15, warmth: -0.15 } },
+  { label: '木', style: { wall: '#e6d8c3', floor: '#9a7652', light: 1, warmth: 0.35 } },
+  { label: '夕暮れ', style: { wall: '#e9d6c0', floor: '#7a5a43', light: 0.75, warmth: 0.85 } },
+  { label: '夜', style: { wall: '#3a3d45', floor: '#26262b', light: 0.55, warmth: -0.45 } },
+];
+/** 壁・床に使える色見本 */
+const SWATCHES = ['#f7f7f5', '#eeebe5', '#e6d8c3', '#c9b8a6', '#b9b2a8', '#9a7652', '#7a4a3a', '#8a9a8e', '#5a6b7a', '#3a3d45', '#26262b'];
+const swatchRow = (name: string) =>
+  `<div class="swatches" data-swatches="${name}">${SWATCHES.map((c) => `<button type="button" data-color="${c}" style="--sw:${c}" aria-label="${c}"></button>`).join('')}<input type="color" aria-label="ほかの色" /></div>`;
+
 export interface LibraryItem {
   id: string;
   title: string;
-  /** 例：「画像 ・ 壁」 */
+  /** 例「画像」 */
   kind: string;
+  own: boolean;
 }
 
-/** 鑑賞中の作品情報パネル（TMS 46） */
-export interface ExhibitInfo {
-  /** 例：「EXHIBIT / 002 ・ 画像」 */
-  eyebrow: string;
+export interface InspectorInfo {
   title: string;
-  /** 例：「MUSEUM サンプル作品 ・ 2026」 */
+  /** 作品・置き物なら名前を変えられ、「移動」を出す */
+  exhibit: boolean;
+  /** 床の物なら「回転」を出す */
+  rotatable: boolean;
+  /** 壁・床なら色見本を出す（今の色） */
+  color?: string;
+}
+
+export interface ExhibitInfo {
+  title: string;
+  /** 作者・年（無ければ空） */
   meta: string;
   description: string;
-  /** HTML作品のとき「◆ 操作できるHTML作品」を出す */
-  interactive: boolean;
-}
-
-/** 情報パネルに出す選択中のパーツ（TMS 42） */
-export interface InspectorInfo {
-  /** 例：「壁 10m」 */
-  label: string;
-  /** 例：「x -5〜5, z -4〜4」 */
-  where: string;
-  /** 作品なら「移動」ボタンを出す */
-  movable: boolean;
+  /** 読み込めなかったときなど */
+  warning?: string;
 }
 
 export interface Shell {
-  /** 3D ビューを入れる要素 */
   viewport: HTMLElement;
-  /** focus: 鑑賞から戻ったときは主ボタンにフォーカスを移す（最初の表示では移さない） */
-  showTitle(opts: { canContinue: boolean; focus: boolean }): void;
-  /**
-   * 3D ビューの画面。mode で鑑賞・編集の UI を切り替える。canEdit=false（スマホ）では編集の切替を出さない。
-   * focus: タイトルから入ったときはロゴにフォーカスを移す（URL から直接開いたときは移さない）
-   */
-  showViewer(opts: { title: string; mode: ViewMode; canEdit: boolean; focus: boolean }): void;
-  /** 選択中の道具を表示する */
+  showTitle(opts: { museums: { id: string; title: string }[]; canCreate: boolean; focus: boolean }): void;
+  showViewer(opts: { title: string; mode: ViewMode; canEdit: boolean; canRename: boolean; focus: boolean }): void;
   setTool(tool: EditTool): void;
-  /** 使える道具（ほかは「準備中」で押せない） */
   setAvailableTools(tools: readonly EditTool[]): void;
-  /** 編集中の左下ヒント（道具ごとの説明。グリッド座標など） */
-  setEditHint(text: string): void;
-  /** 画面下の短い通知（数秒で消える） */
   toast(message: string): void;
-  /** 右上の情報パネル（選択中のパーツ）。null で隠す */
   showInspector(info: InspectorInfo | null): void;
-  /** 右下の作品情報パネル（鑑賞中）。null で隠す（TMS 46） */
   showExhibitInfo(info: ExhibitInfo | null): void;
-  /** 作品ライブラリの一覧（作品の道具を選んでいる間、右上に出す） */
   setLibrary(items: readonly LibraryItem[]): void;
-  /** 3D 作品を近くで見ている間の操作の案内（TMS 52） */
   setInspecting(inspecting: boolean): void;
-  /** 上部バー右の保存状態（例「ブラウザに保存済み」。TMS 57）。空文字で隠す */
-  setSaveStatus(text: string): void;
-  /** メニューに出す項目（未実装の項目は出さない） */
   setMenuItems(items: readonly MenuAction[]): void;
-  /** メニューの項目の文言を変える（例：画質「標準」→「軽量」） */
   setMenuLabel(action: MenuAction, label: string): void;
-  /** 操作のヘルプを開く（TMS 62） */
   openHelp(): void;
-  /** 初めて鑑賞・編集に入ったときの案内（閉じたら二度と出さない。TMS 62） */
   showGuide(kind: 'view' | 'edit', touch: boolean): void;
+  /** 美術館の名前の入力を始める（新しく作った直後） */
+  startRename(): void;
+  setObjectLibrary(items: readonly LibraryItem[]): void;
+  /** 雰囲気の表示を今の値に合わせる */
+  setStyle(style: StyleValue): void;
 }
-
-const GUIDE_KEY = 'museum.guide.v1';
-const GUIDES = {
-  view: {
-    title: 'ようこそ、サンプル美術館へ',
-    pc: 'ドラッグで見回し、W A S D（矢印キー）で歩けます。作品をクリックすると解説が出ます。正面の HTML 作品は、ボタンとスライダーをそのまま押せます。',
-    touch: '指でドラッグして見回し、右下のボタンで歩けます。作品をタップすると解説が出ます。正面の HTML 作品は、そのまま触れます。',
-  },
-  edit: {
-    title: '編集モード',
-    pc: '左の道具で、床（F）・壁（G）をマス目に置き、作品（B）をライブラリから飾れます。選択（V）で選んで M で移動、Delete で削除。ドラッグで部屋を回せます。編集はブラウザに自動で保存されます。',
-    touch: '',
-  },
-} as const;
-
-const MENU: { action: MenuAction; label: string }[] = [
-  { action: 'export', label: 'JSON で書き出す' },
-  { action: 'import', label: 'JSON を読み込む…' },
-  { action: 'share', label: '共有用の URL をコピー' },
-  { action: 'quality', label: '画質：標準' },
-  { action: 'help', label: '操作のヘルプ' },
-];
 
 const TOOLS: { tool: EditTool; label: string; key: string; icon: string }[] = [
   { tool: 'select', label: '選択', key: 'V', icon: 'M5 3l13 8-6 1.5L9 19z' },
   { tool: 'floor', label: '床', key: 'F', icon: 'M3 15l9-5 9 5-9 5zM3 15v1M21 15v1' },
   { tool: 'wall', label: '壁', key: 'G', icon: 'M5 4h14v16H5zM5 9h14M5 14h14M12 4v5M9 9v5M15 9v5M12 14v6' },
   { tool: 'exhibit', label: '作品', key: 'B', icon: 'M4 5h16v14H4zM4 15l5-5 4 4 3-3 4 4' },
+  { tool: 'object', label: 'もの', key: 'O', icon: 'M12 3l8 4.5v9L12 21l-8-4.5v-9zM12 12l8-4.5M12 12v9M12 12L4 7.5' },
+  { tool: 'style', label: '雰囲気', key: 'C', icon: 'M12 3a9 9 0 100 18c1.1 0 1.6-.9 1.2-1.8-.5-1-.1-2.2 1.1-2.2H17a4 4 0 004-4c0-5.5-4-10-9-10zM7.5 12a1 1 0 100-2 1 1 0 000 2zM10 7.5a1 1 0 100-2 1 1 0 000 2zM15 7.5a1 1 0 100-2 1 1 0 000 2z' },
   { tool: 'delete', label: '削除', key: 'X', icon: 'M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13' },
 ];
+
+const MENU: { action: MenuAction; label: string }[] = [
+  { action: 'export', label: '書き出す' },
+  { action: 'import', label: '読み込む…' },
+  { action: 'share', label: 'URL をコピー' },
+  { action: 'quality', label: '軽量モード' },
+  { action: 'help', label: 'ヘルプ' },
+  { action: 'delete', label: 'この美術館を削除' },
+];
+
+const GUIDE_KEY = 'museum.guide.v1';
+const GUIDES = {
+  view: { pc: 'ドラッグで見回し、W A S D で歩く。作品はクリック。', touch: '指で見回し、右下のボタンで歩く。作品はタップ。' },
+  edit: { pc: '床と壁を置いて、作品を飾る。', touch: '' },
+} as const;
+
+const isTyping = (el: EventTarget | null) =>
+  el instanceof HTMLElement && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
 
 export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
   root.innerHTML = `
@@ -149,16 +156,14 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
   <div id="viewport" class="app__viewport"></div>
   <section class="title-screen" aria-labelledby="title-heading">
     <div class="title-screen__inner">
-      <div class="m-eyebrow">Museum</div>
-      <h1 id="title-heading" class="m-hero">自分の世界を、<br />美術館にする。</h1>
-      <p class="title-screen__lead">床と壁を置いて展示室を建て、絵・文章・映像・音・3D・操作できるHTML作品を飾って、その中を歩く。</p>
+      <h1 id="title-heading" class="m-hero">自分だけの<br />美術館を作ろう</h1>
       <div class="title-screen__actions">
-        <button type="button" class="m-btn m-btn--primary m-btn--lg" data-start="sample">サンプル美術館に入る</button>
-        <button type="button" class="m-btn m-btn--secondary m-btn--lg" data-start="empty">空の部屋から作る</button>
+        <button type="button" class="m-btn m-btn--primary m-btn--lg" data-start="new">美術館をつくる</button>
+        <button type="button" class="m-btn m-btn--secondary m-btn--lg" data-start="sample">サンプルを見る</button>
       </div>
-      <button type="button" class="m-btn m-btn--ghost m-btn--sm title-screen__continue" data-start="continue" hidden>続きから（前回の編集）</button>
-      <p class="title-screen__note">PC の Google Chrome 推奨 ・ スマホは鑑賞のみ ・ <button type="button" class="title-screen__about">この作品について</button></p>
+      <ul class="title-screen__mine" aria-label="自分の美術館"></ul>
     </div>
+    <button type="button" class="title-screen__about">この作品について</button>
   </section>
   <div class="hud" hidden data-mode="view">
     <header class="m-topbar">
@@ -168,11 +173,12 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
         <button type="button" data-mode-btn="edit" aria-pressed="false">編集</button>
       </div>
       <div class="m-topbar__group">
-        <span class="hud__title"></span>
-        <span class="hud__save" role="status" aria-live="polite"></span>
-        <button type="button" class="m-btn m-btn--ghost m-btn--sm hud__help-btn" aria-keyshortcuts="?">ヘルプ</button>
+        <button type="button" class="hud__title" title="名前を変える"></button>
+        <input class="hud__title-input" maxlength="60" aria-label="美術館の名前" hidden />
         <div class="hud__menu-wrap">
-          <button type="button" class="m-btn m-btn--secondary m-btn--sm hud__menu-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="hud-menu">メニュー</button>
+          <button type="button" class="m-btn m-btn--ghost m-btn--sm m-btn--icon hud__menu-btn" aria-label="メニュー" aria-haspopup="menu" aria-expanded="false" aria-controls="hud-menu">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
           <div id="hud-menu" class="m-panel m-panel--dark hud__menu" role="menu" hidden>
             ${MENU.map((m) => `<button type="button" role="menuitem" data-action="${m.action}">${m.label}</button>`).join('')}
           </div>
@@ -187,18 +193,44 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
       </button>`,
       ).join('')}
     </nav>
-    <div class="m-hint hud__hint-view">
-      ドラッグ：見回す<span class="hud__keys"> ・ <kbd class="m-kbd">W</kbd><kbd class="m-kbd">A</kbd><kbd class="m-kbd">S</kbd><kbd class="m-kbd">D</kbd> / 矢印：歩く ・ <kbd class="m-kbd">Shift</kbd>：速く ・ <kbd class="m-kbd">Q</kbd><kbd class="m-kbd">E</kbd>：向きを変える</span><span class="hud__touch"> ・ 右下のボタン：歩く</span>
-    </div>
-    <div class="m-hint m-hint--with-palette hud__hint-edit">
-      <span class="hud__edit-tool"></span>
-      <span class="hud__edit-keys">ドラッグ：回す ・ ホイール：寄る ・ <kbd class="m-kbd">W</kbd><kbd class="m-kbd">A</kbd><kbd class="m-kbd">S</kbd><kbd class="m-kbd">D</kbd>：ずらす ・ <kbd class="m-kbd">Q</kbd><kbd class="m-kbd">E</kbd>：回す</span>
-    </div>
+    <aside class="m-panel m-panel--dark hud__inspector" aria-label="選択中" hidden>
+      <h2 class="hud__inspector-label"></h2>
+      <input class="hud__inspector-name" maxlength="60" aria-label="作品の名前" />
+      ${swatchRow('part')}
+      <div class="hud__inspector-actions">
+        <button type="button" class="m-btn m-btn--primary m-btn--sm hud__move" title="M">移動</button>
+        <button type="button" class="m-btn m-btn--secondary m-btn--sm hud__rotate" title="R">回転</button>
+        <button type="button" class="m-btn m-btn--danger m-btn--sm hud__delete" title="Delete">削除</button>
+      </div>
+    </aside>
+    <aside class="m-panel m-panel--dark hud__library" aria-label="作品" hidden>
+      <button type="button" class="m-btn m-btn--primary m-btn--sm hud__upload">＋ ファイルから追加</button>
+      <input type="file" class="hud__upload-file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,audio/*,.mp3,.m4a,.wav,.ogg,.glb,.txt,.md,text/plain" hidden />
+      <ul class="hud__library-list"></ul>
+    </aside>
+    <aside class="m-panel m-panel--dark hud__library hud__objects" aria-label="もの" hidden>
+      <button type="button" class="m-btn m-btn--primary m-btn--sm hud__upload-object">＋ 3D モデル（.glb）</button>
+      <input type="file" class="hud__upload-object-file" accept=".glb,model/gltf-binary" hidden />
+      <ul class="hud__library-list hud__objects-list"></ul>
+    </aside>
+    <aside class="m-panel m-panel--dark hud__style" aria-label="雰囲気" hidden>
+      <div class="hud__presets">${PRESETS.map((p, i) => `<button type="button" data-preset="${i}" style="--a:${p.style.wall};--b:${p.style.floor}">${p.label}</button>`).join('')}</div>
+      <label>壁</label>${swatchRow('wall')}
+      <label>床</label>${swatchRow('floor')}
+      <label for="hud-light">明るさ</label><input id="hud-light" type="range" min="0.4" max="1.6" step="0.05" data-style="light" />
+      <label for="hud-warmth">光の色</label><input id="hud-warmth" type="range" min="-1" max="1" step="0.05" data-style="warmth" class="hud__warmth" />
+    </aside>
+    <aside class="m-panel hud__info" aria-labelledby="hud-info-title" hidden>
+      <button type="button" class="hud__info-close" aria-label="閉じる（Esc）">✕</button>
+      <h2 id="hud-info-title" class="hud__info-title"></h2>
+      <p class="m-muted hud__info-meta"></p>
+      <p class="hud__info-warning" hidden></p>
+      <p class="hud__info-desc"></p>
+    </aside>
     <div class="hud__inspect" role="group" aria-label="3D作品を近くで見る">
-      <span class="hud__inspect-text">ドラッグ：回して見る ・ ホイール：寄る</span>
       <button type="button" class="m-btn m-btn--secondary m-btn--sm m-btn--icon" data-zoom="-0.25" aria-label="寄る">＋</button>
       <button type="button" class="m-btn m-btn--secondary m-btn--sm m-btn--icon" data-zoom="0.25" aria-label="離れる">−</button>
-      <button type="button" class="m-btn m-btn--primary m-btn--sm hud__inspect-end">歩いて見るに戻る（Esc）</button>
+      <button type="button" class="m-btn m-btn--primary m-btn--sm hud__inspect-end">戻る</button>
     </div>
     <div class="move-pad" role="group" aria-label="移動（押している間歩く）">
       ${padButton('forward', '前へ', 'M6 15l6-6 6 6')}
@@ -206,122 +238,34 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
       ${padButton('right', '右へ', 'M9 6l6 6-6 6')}
       ${padButton('back', '後ろへ', 'M6 9l6 6 6-6')}
     </div>
-    <aside class="m-panel m-panel--dark hud__inspector" aria-label="選択中のパーツ" hidden>
-      <div class="m-eyebrow">Selected</div>
-      <h2 class="hud__inspector-label"></h2>
-      <p class="m-muted hud__inspector-where"></p>
-      <div class="hud__inspector-actions">
-        <button type="button" class="m-btn m-btn--primary m-btn--sm hud__move" hidden>移動（M）</button>
-        <button type="button" class="m-btn m-btn--danger m-btn--sm hud__delete">削除（Delete）</button>
-        <button type="button" class="m-btn m-btn--secondary m-btn--sm hud__deselect">選択を解除（Esc）</button>
-      </div>
-    </aside>
-    <aside class="m-panel m-panel--dark hud__library" aria-labelledby="hud-library-title" hidden>
-      <div class="m-eyebrow">Library</div>
-      <h2 id="hud-library-title">作品ライブラリ</h2>
-      <p class="m-muted">選んでから、壁または床をクリックして置く。</p>
-      <ul class="hud__library-list"></ul>
-    </aside>
-    <aside class="m-panel hud__info" aria-labelledby="hud-info-title" hidden>
-      <div class="m-eyebrow hud__info-eyebrow"></div>
-      <h2 id="hud-info-title" class="hud__info-title"></h2>
-      <p class="m-muted hud__info-meta"></p>
-      <p class="hud__info-badge" hidden><span class="m-badge">◆ 操作できるHTML作品</span></p>
-      <p class="hud__info-desc"></p>
-      <button type="button" class="m-btn m-btn--secondary m-btn--sm hud__info-close">閉じる（Esc）</button>
-    </aside>
-    <div class="m-panel m-panel--dark hud__guide" role="dialog" aria-labelledby="hud-guide-title" hidden>
-      <div class="m-eyebrow">Guide</div>
-      <h2 id="hud-guide-title" class="hud__guide-title"></h2>
+    <div class="m-panel m-panel--dark hud__guide" role="status" hidden>
       <p class="hud__guide-text"></p>
-      <div class="hud__inspector-actions">
-        <button type="button" class="m-btn m-btn--primary m-btn--sm hud__guide-ok">わかった</button>
-        <button type="button" class="m-btn m-btn--secondary m-btn--sm hud__guide-help">操作の一覧（?）</button>
-      </div>
+      <button type="button" class="m-btn m-btn--primary m-btn--sm hud__guide-ok">OK</button>
     </div>
     <div class="m-toast hud__toast" role="status" aria-live="polite" hidden></div>
   </div>
   <dialog class="help about" aria-labelledby="about-title">
-    <div class="help__head">
-      <div><div class="m-eyebrow">About</div><h2 id="about-title">MUSEUM ── 自分の世界を、美術館にする。</h2></div>
-      <form method="dialog"><button class="m-btn m-btn--secondary m-btn--sm" value="close">閉じる（Esc）</button></form>
-    </div>
-    <p class="about__lead">床と壁をマス目に置いて自分の展示室を建て、絵・文章・映像・音・3D、そして<strong>その場で触れる HTML 作品</strong>を飾り、ブラウザの中でその部屋を歩いて鑑賞できる 3D 美術館です。インストールもログインも要りません。</p>
-    <div class="help__grid">
-      <section>
-        <h3>特徴</h3>
-        <ul>
-          <li><strong>空間から作れる</strong>：用意された部屋に投稿するのではなく、床・壁を置いて部屋の形から自分で決める。鑑賞に切り替えると、その部屋を一人称で歩ける（壁は通り抜けない）。</li>
-          <li><strong>6 種類の作品</strong>：画像・文章・動画・音・3D（GLB）・HTML。動画と音はクリックで再生、3D は近くで回して見られる。</li>
-          <li><strong>3D の壁の上で HTML を操作</strong>：HTML 作品のボタンやスライダーを、3D 空間の中でそのまま押せる。スライダーで展示室の明るさが変わる。</li>
-          <li><strong>そのまま残る・渡せる</strong>：編集はブラウザに自動保存。JSON で書き出し・読み込みできる。</li>
-        </ul>
-      </section>
-      <section>
-        <h3>技術</h3>
-        <ul>
-          <li><strong>HTML in Canvas</strong>（Chrome 157 で正式に使えるようになった新しい仕組み）で、本物の DOM を WebGL のテクスチャとして描き、カメラの動きに合わせて「要素 → 画面」の変換を毎フレーム更新して、3D の中でクリック・ドラッグを DOM に届けている。</li>
-          <li>対応していないブラウザでは、同じ HTML を通常の画面のパネルで開いて操作できる（真っ白にしない）。</li>
-          <li>Three.js・TypeScript・Vite。サーバーを持たない静的サイトで、どこでも同じ URL で開ける。</li>
-          <li>安全のため、HTML 作品はアプリに同梱した公式テンプレートだけを動かし、読み込む JSON からは任意の HTML・URL を受け付けない。</li>
-        </ul>
-      </section>
-      <section>
-        <h3>対応環境</h3>
-        <ul>
-          <li>おすすめ：PC の Google Chrome 157 以降（建てる・飾る・HTML 作品を 3D の中で操作）。</li>
-          <li>スマホ：鑑賞のみ（指で見回し、右下のボタンで歩く）。</li>
-          <li>ほかのブラウザ：鑑賞と、HTML 作品のパネルでの操作。</li>
-        </ul>
-      </section>
-      <section>
-        <h3>素材とライセンス</h3>
-        <ul>
-          <li>サンプル作品（画像・動画・音・3D・文章）はすべてこのアプリのために新しく作ったもの（<a href="assets/CREDITS.md" target="_blank" rel="noopener">素材の出どころ</a>）。</li>
-          <li>three.js（MIT License）を使用（<a href="THIRD_PARTY_LICENSES.txt" target="_blank" rel="noopener">ライセンス表示</a>）。</li>
-        </ul>
-      </section>
-    </div>
+    <form method="dialog" class="help__close"><button class="m-btn m-btn--secondary m-btn--sm m-btn--icon" value="close" aria-label="閉じる">✕</button></form>
+    <h2 id="about-title">MUSEUM</h2>
+    <p class="about__lead">床と壁を置いて自分の展示室を建て、作品を飾り、その中を歩くブラウザの美術館。</p>
+    <ul>
+      <li>画像・文章・動画・音・3D・HTML の 6 種類。自分のファイルも飾れる</li>
+      <li>HTML 作品は 3D の壁の上でそのまま操作できる（<strong>HTML in Canvas</strong>、Chrome 157 以降。ほかのブラウザはパネルで操作）</li>
+      <li>Three.js・TypeScript・Vite の静的サイト。作品と美術館はこのブラウザだけに保存</li>
+    </ul>
+    <p class="about__links"><a href="assets/CREDITS.md" target="_blank" rel="noopener">素材</a> ・ <a href="THIRD_PARTY_LICENSES.txt" target="_blank" rel="noopener">ライセンス</a></p>
   </dialog>
   <dialog class="help" aria-labelledby="help-title">
-    <div class="help__head">
-      <div><div class="m-eyebrow">Help</div><h2 id="help-title">操作のヘルプ</h2></div>
-      <form method="dialog"><button class="m-btn m-btn--secondary m-btn--sm" value="close">閉じる（Esc）</button></form>
-    </div>
-    <div class="help__grid">
-      <section>
-        <h3>歩いて見る（鑑賞）</h3>
-        <dl>
-          <dt>見回す</dt><dd>ドラッグ（スマホは指で）／ <kbd class="m-kbd">Q</kbd><kbd class="m-kbd">E</kbd></dd>
-          <dt>歩く</dt><dd><kbd class="m-kbd">W</kbd><kbd class="m-kbd">A</kbd><kbd class="m-kbd">S</kbd><kbd class="m-kbd">D</kbd>・矢印キー（スマホは右下のボタン）、<kbd class="m-kbd">Shift</kbd> で速く</dd>
-          <dt>作品の解説</dt><dd>作品をクリック。<kbd class="m-kbd">Esc</kbd> で閉じる</dd>
-        </dl>
-      </section>
-      <section>
-        <h3>作品ごとの操作</h3>
-        <dl>
-          <dt>HTML 作品</dt><dd>3D の壁の上で、ボタン・スライダーをそのまま操作（Chrome 157 以降。ほかのブラウザはクリックで開くパネル）</dd>
-          <dt>動画・音</dt><dd>クリックで再生・一時停止。音は近づくほど大きく聞こえる</dd>
-          <dt>3D 作品</dt><dd>クリックで近くで回して見る（ドラッグで回す、ホイール・＋−で寄る、<kbd class="m-kbd">Esc</kbd> で戻る）</dd>
-        </dl>
-      </section>
-      <section>
-        <h3>建てる・飾る（編集、PC のみ）</h3>
-        <dl>
-          <dt>道具</dt><dd>選択 <kbd class="m-kbd">V</kbd>・床 <kbd class="m-kbd">F</kbd>・壁 <kbd class="m-kbd">G</kbd>・作品 <kbd class="m-kbd">B</kbd>・削除 <kbd class="m-kbd">X</kbd></dd>
-          <dt>選んだもの</dt><dd><kbd class="m-kbd">M</kbd> で作品を移動、<kbd class="m-kbd">Delete</kbd> で削除、<kbd class="m-kbd">Esc</kbd> で解除・取り消し</dd>
-          <dt>視点</dt><dd>ドラッグで回す、ホイールで寄る、<kbd class="m-kbd">W</kbd><kbd class="m-kbd">A</kbd><kbd class="m-kbd">S</kbd><kbd class="m-kbd">D</kbd> でずらす、<kbd class="m-kbd">Q</kbd><kbd class="m-kbd">E</kbd> で回す</dd>
-        </dl>
-      </section>
-      <section>
-        <h3>保存・共有</h3>
-        <dl>
-          <dt>自動保存</dt><dd>編集はこのブラウザに自動で保存。タイトルの「続きから」で開く</dd>
-          <dt>JSON</dt><dd>メニューから書き出し・読み込み（人に渡すとき・別の端末で開くとき）</dd>
-          <dt>共有 URL</dt><dd>メニュー「共有用の URL をコピー」でサンプル美術館を直接開く URL</dd>
-        </dl>
-      </section>
-    </div>
+    <form method="dialog" class="help__close"><button class="m-btn m-btn--secondary m-btn--sm m-btn--icon" value="close" aria-label="閉じる">✕</button></form>
+    <h2 id="help-title">ヘルプ</h2>
+    <dl>
+      <dt>見回す</dt><dd>ドラッグ ・ <kbd class="m-kbd">Q</kbd><kbd class="m-kbd">E</kbd></dd>
+      <dt>歩く</dt><dd><kbd class="m-kbd">W</kbd><kbd class="m-kbd">A</kbd><kbd class="m-kbd">S</kbd><kbd class="m-kbd">D</kbd> ・ <kbd class="m-kbd">Shift</kbd> で速く</dd>
+      <dt>作品</dt><dd>クリック（動画・音は再生、3D は回して見る）</dd>
+      <dt>編集の道具</dt><dd><kbd class="m-kbd">V</kbd> 選択 ・ <kbd class="m-kbd">F</kbd> 床 ・ <kbd class="m-kbd">G</kbd> 壁 ・ <kbd class="m-kbd">B</kbd> 作品 ・ <kbd class="m-kbd">X</kbd> 削除</dd>
+      <dt>選んだもの</dt><dd><kbd class="m-kbd">M</kbd> 移動 ・ <kbd class="m-kbd">Delete</kbd> 削除 ・ <kbd class="m-kbd">Esc</kbd> 解除</dd>
+      <dt>保存</dt><dd>自動（このブラウザ）。メニューから書き出し・読み込み</dd>
+    </dl>
   </dialog>
 </div>`;
 
@@ -329,23 +273,68 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
   const viewport = q<HTMLElement>('#viewport');
   const title = q<HTMLElement>('.title-screen');
   const hud = q<HTMLElement>('.hud');
-  const hudTitle = q<HTMLElement>('.hud__title');
+  const hudTitle = q<HTMLButtonElement>('.hud__title');
+  const titleInput = q<HTMLInputElement>('.hud__title-input');
   const modes = q<HTMLElement>('.hud__modes');
   const palette = q<HTMLElement>('.hud__palette');
-  const editTool = q<HTMLElement>('.hud__edit-tool');
   const toastEl = q<HTMLElement>('.hud__toast');
   const inspector = q<HTMLElement>('.hud__inspector');
   const info = q<HTMLElement>('.hud__info');
-  const closeInfo = () => {
-    info.hidden = true;
-    opts.onInfoClosed();
-  };
-  q<HTMLButtonElement>('.hud__info-close').addEventListener('click', closeInfo);
-  // 鑑賞中の Esc は作品情報パネルを閉じる（3D 作品を近くで見ているときは歩いて見るに戻る）
-  window.addEventListener('keydown', (e) => {
-    if (e.code === 'Escape' && (!info.hidden || hud.dataset.inspect === 'true')) closeInfo();
+  const library = q<HTMLElement>('.hud__library');
+  const mine = q<HTMLElement>('.title-screen__mine');
+  let mode: ViewMode = 'view';
+  let canRename = false;
+  let toastTimer = 0;
+
+  // ---- タイトル画面 ----
+  title.addEventListener('click', (e) => {
+    const el = e.target as HTMLElement;
+    const start = el.closest<HTMLButtonElement>('[data-start]')?.dataset.start;
+    if (start === 'new') opts.onNew();
+    if (start === 'sample') opts.onSample();
+    const open = el.closest<HTMLButtonElement>('[data-museum]')?.dataset.museum;
+    if (open) opts.onOpenMuseum(open);
   });
-  // ---- 上部バーのメニュー（TMS 55〜64）----
+  const about = q<HTMLDialogElement>('.about');
+  q<HTMLButtonElement>('.title-screen__about').addEventListener('click', () => about.showModal());
+
+  // ---- 上部バー ----
+  q<HTMLButtonElement>('.hud__home').addEventListener('click', () => opts.onHome());
+  modes.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-mode-btn]');
+    const next = btn?.dataset.modeBtn as ViewMode | undefined;
+    if (next && next !== mode) opts.onModeChange(next);
+  });
+  // 美術館の名前：押すと入力欄になり、Enter・外側で確定、Esc で取り消し
+  const startRename = () => {
+    if (!canRename) return;
+    titleInput.value = hudTitle.textContent ?? '';
+    hudTitle.hidden = true;
+    titleInput.hidden = false;
+    titleInput.focus();
+    titleInput.select();
+  };
+  const endRename = (commit: boolean) => {
+    if (titleInput.hidden) return;
+    const v = titleInput.value.trim();
+    titleInput.hidden = true;
+    hudTitle.hidden = false;
+    if (commit && v && v !== hudTitle.textContent) {
+      hudTitle.textContent = v;
+      opts.onRename(v);
+    }
+  };
+  hudTitle.addEventListener('click', startRename);
+  titleInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') endRename(true);
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      endRename(false);
+    }
+  });
+  titleInput.addEventListener('blur', () => endRename(true));
+
+  // ---- メニュー ----
   const menuBtn = q<HTMLButtonElement>('.hud__menu-btn');
   const menu = q<HTMLElement>('.hud__menu');
   const fileInput = q<HTMLInputElement>('.hud__file');
@@ -360,7 +349,7 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
     if (!btn) return;
     setMenuOpen(false);
     const action = btn.dataset.action as MenuAction;
-    if (action === 'import') fileInput.click(); // ファイル選択はブラウザの画面で（このアプリはファイルを勝手に読まない）
+    if (action === 'import') fileInput.click();
     else opts.onMenu(action);
   });
   fileInput.addEventListener('change', () => {
@@ -379,19 +368,108 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
     }
   });
 
-  // ---- 操作のヘルプと初回の案内（TMS 62）----
+  // ---- 編集：道具・選択中・作品ライブラリ ----
+  palette.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-tool]');
+    if (btn && !btn.disabled) opts.onTool(btn.dataset.tool as EditTool);
+  });
+  q<HTMLButtonElement>('.hud__delete').addEventListener('click', () => opts.onDeleteSelected());
+  q<HTMLButtonElement>('.hud__move').addEventListener('click', () => opts.onMoveSelected());
+  q<HTMLButtonElement>('.hud__rotate').addEventListener('click', () => opts.onRotateSelected());
+  // 色見本（選んだ壁・床、雰囲気の壁・床）
+  const onSwatch = (root: HTMLElement, pick: (name: string, color: string) => void) => {
+    root.addEventListener('click', (e) => {
+      const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-color]');
+      const row = b?.closest<HTMLElement>('[data-swatches]');
+      if (b && row) pick(row.dataset.swatches!, b.dataset.color!);
+    });
+    root.addEventListener('input', (e) => {
+      const inp = e.target as HTMLInputElement;
+      const row = inp.closest<HTMLElement>('[data-swatches]');
+      if (inp.type === 'color' && row) pick(row.dataset.swatches!, inp.value);
+    });
+  };
+  onSwatch(inspector, (_name, color) => opts.onColorSelected(color));
+  const stylePanel = q<HTMLElement>('.hud__style');
+  onSwatch(stylePanel, (name, color) => opts.onStyle(name === 'wall' ? { wall: color } : { floor: color }));
+  stylePanel.addEventListener('click', (e) => {
+    const p = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-preset]');
+    if (p) opts.onStyle(PRESETS[Number(p.dataset.preset)].style);
+  });
+  stylePanel.addEventListener('change', (e) => {
+    const inp = e.target as HTMLInputElement;
+    if (inp.dataset.style === 'light' || inp.dataset.style === 'warmth') opts.onStyle({ [inp.dataset.style]: Number(inp.value) });
+  });
+  const objects = q<HTMLElement>('.hud__objects');
+  const uploadObject = q<HTMLInputElement>('.hud__upload-object-file');
+  q<HTMLButtonElement>('.hud__upload-object').addEventListener('click', () => uploadObject.click());
+  uploadObject.addEventListener('change', () => {
+    const file = uploadObject.files?.[0];
+    uploadObject.value = '';
+    if (file) opts.onUploadObject(file);
+  });
+  const nameInput = q<HTMLInputElement>('.hud__inspector-name');
+  nameInput.addEventListener('change', () => nameInput.value.trim() && opts.onRenameSelected(nameInput.value.trim()));
+  nameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') nameInput.blur();
+  });
+  const upload = q<HTMLInputElement>('.hud__upload-file');
+  q<HTMLButtonElement>('.hud__upload').addEventListener('click', () => upload.click());
+  upload.addEventListener('change', () => {
+    const file = upload.files?.[0];
+    upload.value = '';
+    if (file) opts.onUpload(file);
+  });
+  for (const panel of [library, objects]) panel.addEventListener('click', (e) => {
+    const el = e.target as HTMLElement;
+    const remove = el.closest<HTMLButtonElement>('[data-remove]');
+    if (remove) return opts.onRemoveAsset(remove.dataset.remove!);
+    const btn = el.closest<HTMLButtonElement>('[data-asset]');
+    if (!btn) return;
+    panel.querySelectorAll('[data-asset]').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+    opts.onPickAsset(btn.dataset.asset!);
+  });
+  window.addEventListener('keydown', (e) => {
+    if (hud.hidden || mode !== 'edit' || e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target)) return;
+    if (e.code === 'Delete' || e.code === 'Backspace') {
+      if (!inspector.hidden) {
+        e.preventDefault();
+        opts.onDeleteSelected();
+      }
+      return;
+    }
+    if (e.code === 'Escape') return opts.onClearSelection();
+    if (e.code === 'KeyM' && !inspector.hidden && !q<HTMLButtonElement>('.hud__move').hidden) return opts.onMoveSelected();
+    if (e.code === 'KeyR' && !inspector.hidden && !q<HTMLButtonElement>('.hud__rotate').hidden) return opts.onRotateSelected();
+    const t = TOOLS.find((x) => `Key${x.key}` === e.code);
+    const btn = t && palette.querySelector<HTMLButtonElement>(`[data-tool="${t.tool}"]`);
+    if (t && btn && !btn.disabled) opts.onTool(t.tool);
+  });
+
+  // ---- 鑑賞：作品情報・近くで見る ----
+  const closeInfo = () => {
+    info.hidden = true;
+    opts.onInfoClosed();
+  };
+  q<HTMLButtonElement>('.hud__info-close').addEventListener('click', closeInfo);
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Escape' && !isTyping(e.target) && (!info.hidden || hud.dataset.inspect === 'true')) closeInfo();
+  });
+  q<HTMLElement>('.hud__inspect').addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('button');
+    if (!btn) return;
+    if (btn.dataset.zoom) opts.onInspectZoom(Number(btn.dataset.zoom));
+    else closeInfo();
+  });
+
+  // ---- ヘルプと初回の 1 行 ----
   const help = q<HTMLDialogElement>('.help:not(.about)');
   const openHelp = () => {
     if (!help.open) help.showModal();
   };
-  q<HTMLButtonElement>('.hud__help-btn').addEventListener('click', openHelp);
-  // この作品について（TMS 70。応募フォームに技術説明の欄が無いので、作品ページの中で伝える）
-  const about = q<HTMLDialogElement>('.about');
-  q<HTMLButtonElement>('.title-screen__about').addEventListener('click', () => about.showModal());
   window.addEventListener('keydown', (e) => {
-    const el = e.target as HTMLElement;
-    const isHelpKey = e.key === '?' || (e.code === 'Slash' && e.shiftKey); // 配列の違い（JIS・US）に関係なく
-    if (!isHelpKey || hud.hidden || el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+    const isHelpKey = e.key === '?' || (e.code === 'Slash' && e.shiftKey);
+    if (!isHelpKey || hud.hidden || isTyping(e.target)) return;
     e.preventDefault();
     openHelp();
   });
@@ -404,87 +482,42 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
     }
   };
   let guideKind = '';
-  const closeGuide = () => {
+  q<HTMLButtonElement>('.hud__guide-ok').addEventListener('click', () => {
     guide.hidden = true;
     try {
       localStorage.setItem(GUIDE_KEY, JSON.stringify([...new Set([...seenGuides(), guideKind])]));
     } catch {
-      /* 保存できない環境では、次回もう一度出るだけ */
+      /* 次回もう一度出るだけ */
     }
-  };
-  q<HTMLButtonElement>('.hud__guide-ok').addEventListener('click', closeGuide);
-  q<HTMLButtonElement>('.hud__guide-help').addEventListener('click', () => {
-    closeGuide();
-    openHelp();
   });
 
-  const inspectBar = q<HTMLElement>('.hud__inspect');
-  inspectBar.addEventListener('click', (e) => {
-    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('button');
-    if (!btn) return;
-    if (btn.dataset.zoom) opts.onInspectZoom(Number(btn.dataset.zoom));
-    else closeInfo();
-  });
-  q<HTMLButtonElement>('.hud__delete').addEventListener('click', () => opts.onDeleteSelected());
-  q<HTMLButtonElement>('.hud__move').addEventListener('click', () => opts.onMoveSelected());
-  const library = q<HTMLElement>('.hud__library');
-  library.addEventListener('click', (e) => {
-    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-asset]');
-    if (!btn) return;
-    library.querySelectorAll('[data-asset]').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
-    opts.onPickAsset(btn.dataset.asset!);
-  });
-  q<HTMLButtonElement>('.hud__deselect').addEventListener('click', () => opts.onClearSelection());
-  const continueBtn = q<HTMLButtonElement>('[data-start="continue"]');
-  const primaryBtn = q<HTMLButtonElement>('[data-start="sample"]');
-  let mode: ViewMode = 'view';
-  let toastTimer = 0;
-
-  title.addEventListener('click', (e) => {
-    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-start]');
-    if (btn) opts.onStart(btn.dataset.start as StartKind);
-  });
-  q<HTMLButtonElement>('.hud__home').addEventListener('click', () => opts.onHome());
-  modes.addEventListener('click', (e) => {
-    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-mode-btn]');
-    const next = btn?.dataset.modeBtn as ViewMode | undefined;
-    if (next && next !== mode && !btn!.disabled) opts.onModeChange(next);
-  });
-  palette.addEventListener('click', (e) => {
-    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-tool]');
-    if (btn && !btn.disabled) opts.onTool(btn.dataset.tool as EditTool);
-  });
-  // 道具の切り替えキー（編集中のみ。文字入力中・修飾キー付きは除く）
-  window.addEventListener('keydown', (e) => {
-    if (hud.hidden || mode !== 'edit' || e.metaKey || e.ctrlKey || e.altKey) return;
-    const el = e.target as HTMLElement;
-    if (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
-    if (e.code === 'Delete' || e.code === 'Backspace') {
-      if (!inspector.hidden) {
-        e.preventDefault();
-        opts.onDeleteSelected();
-      }
-      return;
-    }
-    if (e.code === 'Escape') return opts.onClearSelection();
-    if (e.code === 'KeyM' && !inspector.hidden && !q<HTMLButtonElement>('.hud__move').hidden) return opts.onMoveSelected();
-    const t = TOOLS.find((x) => `Key${x.key}` === e.code);
-    const btn = t && palette.querySelector<HTMLButtonElement>(`[data-tool="${t.tool}"]`);
-    if (t && btn && !btn.disabled) opts.onTool(t.tool);
-  });
   bindMovePad(q<HTMLElement>('.move-pad'), opts.onMove);
 
   return {
     viewport,
-    showTitle({ canContinue, focus }) {
-      continueBtn.hidden = !canContinue;
+    showTitle({ museums, canCreate, focus }) {
+      mine.replaceChildren(
+        ...museums.map((m) => {
+          const li = document.createElement('li');
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.dataset.museum = m.id;
+          b.textContent = m.title; // textContent：利用者の付けた名前を HTML として扱わない
+          li.append(b);
+          return li;
+        }),
+      );
+      mine.hidden = museums.length === 0;
+      q<HTMLButtonElement>('[data-start="new"]').hidden = !canCreate;
       hud.hidden = true;
       title.hidden = false;
-      if (focus) primaryBtn.focus({ preventScroll: true });
+      if (focus) title.querySelector<HTMLButtonElement>('button:not([hidden])')?.focus({ preventScroll: true });
     },
-    showViewer({ title: museumTitle, mode: next, canEdit, focus }) {
+    showViewer({ title: museumTitle, mode: next, canEdit, canRename: rename, focus }) {
       mode = next;
-      hudTitle.textContent = museumTitle; // textContent なので HTML として解釈されない
+      canRename = rename && next === 'edit';
+      hudTitle.textContent = museumTitle;
+      hudTitle.disabled = !canRename;
       hud.dataset.mode = next;
       modes.hidden = !canEdit;
       modes.querySelectorAll<HTMLButtonElement>('[data-mode-btn]').forEach((b) => {
@@ -496,31 +529,71 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
     },
     setTool(tool) {
       library.hidden = tool !== 'exhibit';
-      if (tool !== 'exhibit') library.querySelectorAll('[data-asset]').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+      objects.hidden = tool !== 'object';
+      stylePanel.hidden = tool !== 'style';
+      for (const [panel, t] of [[library, 'exhibit'], [objects, 'object']] as const) {
+        if (tool !== t) panel.querySelectorAll('[data-asset]').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+      }
       palette.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((b) => {
         b.setAttribute('aria-pressed', String(b.dataset.tool === tool));
       });
     },
     setAvailableTools(tools) {
       palette.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((b) => {
-        const t = TOOLS.find((x) => x.tool === b.dataset.tool)!;
-        const ok = tools.includes(t.tool);
-        b.disabled = !ok;
-        b.title = ok ? `${t.label}（${t.key}）` : `${t.label}（準備中）`;
+        b.disabled = !tools.includes(b.dataset.tool as EditTool);
       });
     },
-    setEditHint(text) {
-      editTool.textContent = text ? `${text} ・ ` : '';
+    toast(message) {
+      toastEl.textContent = message;
+      toastEl.hidden = false;
+      clearTimeout(toastTimer);
+      toastTimer = window.setTimeout(() => (toastEl.hidden = true), 2600);
     },
-    showInspector(info) {
-      inspector.hidden = !info;
-      if (!info) return;
-      q<HTMLElement>('.hud__inspector-label').textContent = info.label;
-      q<HTMLElement>('.hud__inspector-where').textContent = info.where;
-      q<HTMLButtonElement>('.hud__move').hidden = !info.movable;
+    showInspector(next) {
+      inspector.hidden = !next;
+      if (!next) return;
+      q<HTMLElement>('.hud__inspector-label').textContent = next.title;
+      q<HTMLElement>('.hud__inspector-label').hidden = next.exhibit;
+      nameInput.hidden = !next.exhibit;
+      nameInput.value = next.title;
+      q<HTMLButtonElement>('.hud__move').hidden = !next.exhibit;
+      q<HTMLButtonElement>('.hud__rotate').hidden = !next.rotatable;
+      const sw = inspector.querySelector<HTMLElement>('[data-swatches="part"]')!;
+      sw.hidden = next.color === undefined;
+      sw.querySelectorAll<HTMLButtonElement>('[data-color]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.color === next.color)));
     },
-    setSaveStatus(text) {
-      q<HTMLElement>('.hud__save').textContent = text;
+    showExhibitInfo(next) {
+      info.hidden = !next;
+      if (!next) return;
+      // すべて textContent（作品の文字列を HTML として解釈しない）
+      q<HTMLElement>('.hud__info-title').textContent = next.title;
+      const meta = q<HTMLElement>('.hud__info-meta');
+      meta.textContent = next.meta;
+      meta.hidden = !next.meta;
+      const warn = q<HTMLElement>('.hud__info-warning');
+      warn.textContent = next.warning ?? '';
+      warn.hidden = !next.warning;
+      const desc = q<HTMLElement>('.hud__info-desc');
+      desc.textContent = next.description;
+      desc.hidden = !next.description;
+    },
+    setObjectLibrary(items) {
+      fillList(q<HTMLElement>('.hud__objects-list'), items);
+    },
+    setStyle(st) {
+      for (const name of ['wall', 'floor'] as const) {
+        const row = stylePanel.querySelector<HTMLElement>(`[data-swatches="${name}"]`)!;
+        row.querySelectorAll<HTMLButtonElement>('[data-color]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.color === st[name])));
+        row.querySelector<HTMLInputElement>('input[type=color]')!.value = st[name];
+      }
+      stylePanel.querySelector<HTMLInputElement>('[data-style="light"]')!.value = String(st.light);
+      stylePanel.querySelector<HTMLInputElement>('[data-style="warmth"]')!.value = String(st.warmth);
+    },
+    setLibrary(items) {
+      fillList(q<HTMLElement>('.hud__library:not(.hud__objects) .hud__library-list'), items);
+    },
+    setInspecting(inspecting) {
+      hud.dataset.inspect = String(inspecting);
     },
     setMenuItems(items) {
       menu.querySelectorAll<HTMLButtonElement>('[data-action]').forEach((b) => (b.hidden = !items.includes(b.dataset.action as MenuAction)));
@@ -531,56 +604,46 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
     },
     openHelp,
     showGuide(kind, touch) {
-      const g = GUIDES[kind];
-      const textBody = touch ? g.touch : g.pc;
-      if (!textBody || seenGuides().includes(kind)) {
+      const text = touch ? GUIDES[kind].touch : GUIDES[kind].pc;
+      if (!text || seenGuides().includes(kind)) {
         guide.hidden = true;
         return;
       }
       guideKind = kind;
-      q<HTMLElement>('.hud__guide-title').textContent = g.title;
-      q<HTMLElement>('.hud__guide-text').textContent = textBody;
+      q<HTMLElement>('.hud__guide-text').textContent = text;
       guide.hidden = false;
     },
-    setInspecting(inspecting) {
-      hud.dataset.inspect = String(inspecting);
-    },
-    setLibrary(items) {
-      const list = q<HTMLElement>('.hud__library-list');
-      list.replaceChildren(
-        ...items.map((it) => {
-          const li = document.createElement('li');
-          const b = document.createElement('button');
-          b.type = 'button';
-          b.dataset.asset = it.id;
-          b.setAttribute('aria-pressed', 'false');
-          const t = document.createElement('span');
-          t.textContent = it.title;
-          const k = document.createElement('small');
-          k.textContent = it.kind;
-          b.append(t, k);
-          li.append(b);
-          return li;
-        }),
-      );
-    },
-    showExhibitInfo(next) {
-      info.hidden = !next;
-      if (!next) return;
-      // すべて textContent（作品の文字列を HTML として解釈しない）
-      q<HTMLElement>('.hud__info-eyebrow').textContent = next.eyebrow;
-      q<HTMLElement>('.hud__info-title').textContent = next.title;
-      q<HTMLElement>('.hud__info-meta').textContent = next.meta;
-      q<HTMLElement>('.hud__info-desc').textContent = next.description;
-      q<HTMLElement>('.hud__info-badge').hidden = !next.interactive;
-    },
-    toast(message) {
-      toastEl.textContent = message;
-      toastEl.hidden = false;
-      clearTimeout(toastTimer);
-      toastTimer = window.setTimeout(() => (toastEl.hidden = true), 3200);
-    },
+    startRename,
   };
+}
+
+/** 作品・置き物の一覧を作る（名前は textContent。自分で追加した物には消すボタン） */
+function fillList(list: HTMLElement, items: readonly LibraryItem[]) {
+  list.replaceChildren(
+    ...items.map((it) => {
+      const li = document.createElement('li');
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.asset = it.id;
+      b.setAttribute('aria-pressed', 'false');
+      const t = document.createElement('span');
+      t.textContent = it.title;
+      const k = document.createElement('small');
+      k.textContent = it.kind;
+      b.append(t, k);
+      li.append(b);
+      if (it.own) {
+        const x = document.createElement('button');
+        x.type = 'button';
+        x.className = 'hud__library-remove';
+        x.dataset.remove = it.id;
+        x.setAttribute('aria-label', `「${it.title}」を消す`);
+        x.textContent = '✕';
+        li.append(x);
+      }
+      return li;
+    }),
+  );
 }
 
 // ---- 移動ボタン（スマホ・タッチ端末。TMS 37）----

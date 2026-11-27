@@ -16,6 +16,7 @@ const ALLOW = {
   scene: ['types', 'three'],
   exhibits: ['types', 'scene', 'three'],
   editor: ['types', 'scene', 'exhibits', 'data', 'three'],
+  storage: ['types', 'data'],
 };
 
 function walk(dir) {
