@@ -88,6 +88,9 @@ npm run release      # check:layers + test + build + verify:dist（公開前は�
 技術: TypeScript / Vite / Three.js。サーバーを持たない**静的サイト**として動く。
 「3Dの描画（scene）」「画面（ui）」「作品データ（data）」を分け、`main.ts` でつなぐ。フォルダの責務と依存ルールは [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 
+### 共有用のデモ URL（TMS 59）
+公開先の URL の後ろに `#/view/sample` を付けると、タイトルを飛ばしてサンプル美術館に直接入れる（例 `https://<公開先>/#/view/sample`）。空の部屋は `#/view/empty`。アプリ内では「メニュー → 共有用の URL をコピー」。編集した美術館はその端末のブラウザにだけ保存されるので、人に渡すときは JSON で書き出す。
+
 ### 静的配信の構成
 - 公開するのは **`dist/` だけ**（ビルド結果。HTML・JS・CSS・素材がすべて入り、`dist/` 単体で動く）。リポジトリ直下には `src/`・`docs/`・`tools/` があるので、**直下をそのまま公開しない**。
 - `vite.config.ts` の `base: './'` で、HTML から JS・CSS・素材への参照はすべて**相対パス**。ルート以外の場所（例: `/museum/`）に置いても動く（TMS 30 で、Vite を使わない静的サーバーで確認済み）。

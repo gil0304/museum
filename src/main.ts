@@ -109,7 +109,7 @@ const shell = mountShell(app, {
   onMenu: (action) => runMenu(action),
   onImportFile: (file) => void importFile(file),
 });
-shell.setMenuItems(['export', 'import']);
+shell.setMenuItems(['export', 'import', 'share']);
 
 const viewer = createViewer(shell.viewport, room.scene, room.camera, (dt, t) => {
   if (screen === 'title') updateTitleCamera(room.camera, t, reducedMotion.matches);
@@ -236,6 +236,27 @@ function show(doc: MuseumDocument, force = false) {
 // ---- メニュー：JSON の書き出し・読み込み（TMS 55・56）----
 function runMenu(action: string) {
   if (action === 'export' && work) exportJson(work.doc);
+  if (action === 'share') void copyShareUrl();
+}
+
+// ---- 共有用のデモ URL（TMS 59）----
+/**
+ * サンプル美術館を鑑賞で開く URL（例 https://…/#/view/sample）。タイトルを飛ばして直接展示室に入る。
+ * 空の部屋は #/view/empty。自分で編集した美術館はこの端末のブラウザにしか無いので、URL ではなく JSON で渡してもらう。
+ */
+function shareUrl(kind: StartKind) {
+  return `${location.origin}${location.pathname}#/view/${kind === 'empty' ? 'empty' : 'sample'}`;
+}
+async function copyShareUrl() {
+  const kind = work?.kind ?? 'sample';
+  const url = shareUrl(kind);
+  const note = kind === 'continue' ? '（編集した美術館は共有されません。渡すときは JSON で書き出してください）' : '';
+  try {
+    await navigator.clipboard.writeText(url);
+    shell.toast(`共有用の URL をコピーしました：${url}${note}`);
+  } catch {
+    shell.toast(`共有用の URL：${url}${note}`); // コピーできない環境では表示だけ
+  }
 }
 
 /** 作業中の美術館を JSON ファイルとして保存させる（ブラウザのダウンロード） */
