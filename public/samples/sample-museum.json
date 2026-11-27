@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 1,
+  "id": "sample-first-light",
+  "title": "サンプル美術館",
+  "objects": [
+    {
+      "id": "floor",
+      "type": "floor",
+      "position": [
+        0,
+        -0.1,
+        0
+      ],
+      "size": [
+        10,
+        0.2,
+        8
+      ],
+      "color": "#b9b2a8"
+    },
+    {
+      "id": "wall-back",
+      "type": "wall",
+      "position": [
+        0,
+        1.5,
+        -4
+      ],
+      "size": [
+        10,
+        3,
+        0.2
+      ],
+      "color": "#eeebe5"
+    },
+    {
+      "id": "wall-left",
+      "type": "wall",
+      "position": [
+        -5,
+        1.5,
+        0
+      ],
+      "size": [
+        0.2,
+        3,
+        8
+      ],
+      "color": "#f4f0e9"
+    },
+    {
+      "id": "wall-right",
+      "type": "wall",
+      "position": [
+        5,
+        1.5,
+        0
+      ],
+      "size": [
+        0.2,
+        3,
+        8
+      ],
+      "color": "#eeebe5"
+    },
+    {
+      "id": "wall-front",
+      "type": "wall",
+      "position": [
+        0,
+        1.5,
+        4
+      ],
+      "size": [
+        10,
+        3,
+        0.2
+      ],
+      "color": "#eeebe5"
+    }
+  ],
+  "exhibits": [
+    {
+      "id": "ex-html",
+      "assetId": "html-clap-counter",
+      "type": "interactive-html",
+      "mount": "wall",
+      "position": [
+        0.3,
+        1.5,
+        -3.9
+      ],
+      "rotationY": 0
+    },
+    {
+      "id": "ex-first-light",
+      "assetId": "image-first-light",
+      "type": "image",
+      "mount": "wall",
+      "position": [
+        -2.7,
+        1.6,
+        -3.9
+      ],
+      "rotationY": 0
+    },
+    {
+      "id": "ex-tidal",
+      "assetId": "image-tidal-notes",
+      "type": "image",
+      "mount": "wall",
+      "position": [
+        3.2,
+        1.6,
+        -3.9
+      ],
+      "rotationY": 0
+    },
+    {
+      "id": "ex-text",
+      "assetId": "text-room-notes",
+      "type": "text",
+      "mount": "wall",
+      "position": [
+        -4.9,
+        1.55,
+        -1.3
+      ],
+      "rotationY": 1.5707963267948966
+    },
+    {
+      "id": "ex-video",
+      "assetId": "video-slow-weather",
+      "type": "video",
+      "mount": "wall",
+      "position": [
+        -4.9,
+        1.6,
+        1.6
+      ],
+      "rotationY": 1.5707963267948966
+    },
+    {
+      "id": "ex-audio",
+      "assetId": "audio-room-tone",
+      "type": "audio",
+      "mount": "wall",
+      "position": [
+        4.9,
+        1.5,
+        1.5
+      ],
+      "rotationY": -1.5707963267948966
+    },
+    {
+      "id": "ex-knot",
+      "assetId": "glb-knot",
+      "type": "glb",
+      "mount": "floor",
+      "position": [
+        2.7,
+        0,
+        0.6
+      ],
+      "rotationY": -0.4
+    }
+  ]
+}
