@@ -45,6 +45,7 @@ export const LIBRARY: readonly ExhibitAsset[] = [
       'どれも同じ光の下で、同じ床の上に並んでいる。\n\n' +
       'あなたの世界も、こうして部屋にできる。',
     size: [1.2, 1.5],
+    frameSize: [1.24, 1.54], // 紙の色が壁に溶けないよう、細い縁を付ける
     placeholderColor: '#f4efe6',
   },
   {

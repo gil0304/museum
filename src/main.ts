@@ -113,7 +113,8 @@ function exhibitInfo(view: ExhibitView) {
     eyebrow: `Exhibit / ${no} ・ ${TYPE_LABEL[a.type]}`,
     title: p.title ?? a.title,
     meta: [a.author, a.year].filter(Boolean).join(' ・ '),
-    description: p.description ?? a.description,
+    // 文章作品は全文も読めるようにする（壁のパネルに収まらない分も）
+    description: (p.description ?? a.description) + (a.type === 'text' && a.body ? `\n\n${a.body}` : ''),
     interactive: a.type === 'interactive-html',
   };
 }

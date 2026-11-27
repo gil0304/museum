@@ -73,6 +73,85 @@ function faceMaterials(asset: ExhibitAsset, view: { status: ExhibitView['status'
   return [side, side, side, side, front, side];
 }
 
+// ---- 文章作品（TMS 48）----
+/** 1m あたりの画素数（文字がにじまない解像度） */
+const TEXT_PX_PER_M = 900;
+const PAPER = '#f4efe6';
+const INK = '#1d2325';
+const INK_MUTED = '#5c564d';
+const ACCENT_TEXT = '#7a5a2b';
+const SERIF = '"Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif JP", serif';
+const SANS = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", system-ui, sans-serif';
+/** 行頭に来てはいけない文字（簡易の禁則処理） */
+const NO_LINE_START = '、。，．・：；？！ー」』）】〉》ぁぃぅぇぉっゃゅょァィゥェォッャュョ';
+
+/** 日本語を 1 文字ずつ測って折り返す（英単語の途中でも折り返す。行頭禁則だけ守る） */
+export function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  const lines: string[] = [];
+  for (const para of text.split('\n')) {
+    let line = '';
+    for (const ch of para) {
+      if (ctx.measureText(line + ch).width > maxWidth && line && !NO_LINE_START.includes(ch)) {
+        lines.push(line);
+        line = ch;
+      } else line += ch;
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+
+/** 文章作品の面：紙の色の上に、小見出し・タイトル（明朝）・本文・作者を描いたテクスチャ */
+function textTexture(asset: ExhibitAsset): THREE.CanvasTexture {
+  const [w, h] = asset.size;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(w * TEXT_PX_PER_M);
+  canvas.height = Math.round(h * TEXT_PX_PER_M);
+  const ctx = canvas.getContext('2d')!;
+  const W = canvas.width;
+  const H = canvas.height;
+  const pad = W * 0.1;
+  ctx.fillStyle = PAPER;
+  ctx.fillRect(0, 0, W, H);
+  ctx.textBaseline = 'top';
+
+  let y = pad;
+  ctx.fillStyle = ACCENT_TEXT;
+  ctx.font = `600 ${Math.round(W * 0.026)}px ${SANS}`;
+  ctx.fillText('TEXT', pad, y);
+  y += W * 0.06;
+
+  ctx.fillStyle = INK;
+  const titleSize = Math.round(W * 0.062);
+  ctx.font = `400 ${titleSize}px ${SERIF}`;
+  for (const line of wrapText(ctx, asset.title, W - pad * 2)) {
+    ctx.fillText(line, pad, y);
+    y += titleSize * 1.35;
+  }
+  y += W * 0.02;
+  ctx.fillStyle = ACCENT_TEXT;
+  ctx.fillRect(pad, y, W * 0.12, Math.max(2, W * 0.003));
+  y += W * 0.06;
+
+  ctx.fillStyle = INK;
+  const bodySize = Math.round(W * 0.036);
+  ctx.font = `400 ${bodySize}px ${SERIF}`;
+  for (const line of wrapText(ctx, asset.body ?? '', W - pad * 2)) {
+    if (y > H - pad - bodySize * 3) break; // はみ出す分は描かない（作品情報パネルで全文を読める）
+    ctx.fillText(line, pad, y);
+    y += bodySize * (line ? 1.9 : 0.9);
+  }
+
+  ctx.fillStyle = INK_MUTED;
+  ctx.font = `400 ${Math.round(W * 0.026)}px ${SANS}`;
+  ctx.fillText([asset.author, asset.year].filter(Boolean).join(' ・ '), pad, H - pad - W * 0.03);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
+
 /** 壁の作品：額縁（あれば）と作品面。作品面は壁から FRAME_DEPTH + ART_DEPTH の位置 */
 function buildWallPiece(asset: ExhibitAsset, face: THREE.Material | THREE.Material[]): THREE.Group {
   const g = new THREE.Group();
@@ -115,6 +194,12 @@ export function buildExhibit(placement: ExhibitPlacement, asset: ExhibitAsset): 
   let piece: THREE.Group;
   if (asset.mount === 'floor') piece = buildFloorPiece(asset);
   else if (asset.type === 'image') piece = buildWallPiece(asset, faceMaterials(asset, view)); // TMS 45
+  else if (asset.type === 'text') {
+    // 文章作品（TMS 48）：紙のパネル。側面は紙の色、正面に文字
+    const side = standard(PAPER);
+    const front = new THREE.MeshStandardMaterial({ map: textTexture(asset), roughness: 0.95 });
+    piece = buildWallPiece(asset, [side, side, side, side, front, side]);
+  }
   else piece = buildWallPiece(asset, standard(asset.placeholderColor));
   group.name = placement.id;
   group.userData.exhibitId = placement.id;
