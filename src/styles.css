@@ -148,3 +148,26 @@ body { margin: 0; background: var(--c-ink-900); color: var(--c-on-dark); font-fa
 @media (max-width: 700px) {
   .hud__title { display: none; }
 }
+
+/* ---- 初回の案内と操作のヘルプ（TMS 62）---- */
+.hud__guide { position: absolute; z-index: var(--z-panel); left: 50%; bottom: calc(var(--s-7) + var(--s-5)); transform: translateX(-50%); width: min(460px, calc(100% - 32px)); }
+.hud__guide h2 { font-size: var(--fs-xl) !important; }
+.hud__guide p { font-size: var(--fs-md) !important; }
+.hud[data-inspect='true'] .hud__guide { display: none; }
+.help { width: min(860px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: var(--s-6); border: 0; border-radius: var(--r-3); background: var(--c-paper); color: var(--c-text); box-shadow: var(--shadow-panel); }
+.help::backdrop { background: rgba(8, 9, 10, 0.55); }
+.help__head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--s-4); margin-bottom: var(--s-4); }
+.help__head .m-eyebrow { color: var(--c-accent-text); }
+.help h2 { margin: var(--s-2) 0 0; font: 400 var(--fs-2xl) / var(--lh-tight) var(--font-display); }
+.help__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--s-5) var(--s-6); }
+.help h3 { margin: 0 0 var(--s-2); font: 600 var(--fs-md) / 1.4 var(--font-ui); border-bottom: 1px solid var(--c-paper-line); padding-bottom: var(--s-2); }
+.help dl { display: grid; grid-template-columns: 7em 1fr; gap: var(--s-2) var(--s-3); margin: 0; font-size: var(--fs-sm); line-height: 1.7; }
+.help dt { color: var(--c-text-muted); font-weight: 600; }
+.help dd { margin: 0; }
+.help .m-btn--secondary { color: var(--c-text); }
+@media (max-width: 700px) {
+  .hud__guide { bottom: calc(52px * 3 + var(--s-7) + var(--s-5)); }
+  .help { padding: var(--s-5); }
+  .help__grid { grid-template-columns: 1fr; }
+  .help dl { grid-template-columns: 6em 1fr; }
+}

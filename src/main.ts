@@ -109,7 +109,7 @@ const shell = mountShell(app, {
   onMenu: (action) => runMenu(action),
   onImportFile: (file) => void importFile(file),
 });
-shell.setMenuItems(['export', 'import', 'share']);
+shell.setMenuItems(['export', 'import', 'share', 'help']);
 
 const viewer = createViewer(shell.viewport, room.scene, room.camera, (dt, t) => {
   if (screen === 'title') updateTitleCamera(room.camera, t, reducedMotion.matches);
@@ -237,6 +237,7 @@ function show(doc: MuseumDocument, force = false) {
 function runMenu(action: string) {
   if (action === 'export' && work) exportJson(work.doc);
   if (action === 'share') void copyShareUrl();
+  if (action === 'help') shell.openHelp();
 }
 
 // ---- 共有用のデモ URL（TMS 59）----
@@ -357,6 +358,7 @@ function route() {
     setTool(tool);
   }
   shell.showViewer({ title: doc.title, mode, canEdit: !editUnavailable.matches, focus: fromTitle });
+  shell.showGuide(mode, window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 700); // 初めてのときだけ（TMS 62）
 }
 
 let started = false; // 最初の表示ではフォーカスを動かさない

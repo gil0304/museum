@@ -107,7 +107,25 @@ export interface Shell {
   setMenuItems(items: readonly MenuAction[]): void;
   /** メニューの項目の文言を変える（例：画質「標準」→「軽量」） */
   setMenuLabel(action: MenuAction, label: string): void;
+  /** 操作のヘルプを開く（TMS 62） */
+  openHelp(): void;
+  /** 初めて鑑賞・編集に入ったときの案内（閉じたら二度と出さない。TMS 62） */
+  showGuide(kind: 'view' | 'edit', touch: boolean): void;
 }
+
+const GUIDE_KEY = 'museum.guide.v1';
+const GUIDES = {
+  view: {
+    title: 'ようこそ、サンプル美術館へ',
+    pc: 'ドラッグで見回し、W A S D（矢印キー）で歩けます。作品をクリックすると解説が出ます。正面の HTML 作品は、ボタンとスライダーをそのまま押せます。',
+    touch: '指でドラッグして見回し、右下のボタンで歩けます。作品をタップすると解説が出ます。正面の HTML 作品は、そのまま触れます。',
+  },
+  edit: {
+    title: '編集モード',
+    pc: '左の道具で、床（F）・壁（G）をマス目に置き、作品（B）をライブラリから飾れます。選択（V）で選んで M で移動、Delete で削除。ドラッグで部屋を回せます。編集はブラウザに自動で保存されます。',
+    touch: '',
+  },
+} as const;
 
 const MENU: { action: MenuAction; label: string }[] = [
   { action: 'export', label: 'JSON で書き出す' },
@@ -152,6 +170,7 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
       <div class="m-topbar__group">
         <span class="hud__title"></span>
         <span class="hud__save" role="status" aria-live="polite"></span>
+        <button type="button" class="m-btn m-btn--ghost m-btn--sm hud__help-btn" aria-keyshortcuts="?">ヘルプ</button>
         <div class="hud__menu-wrap">
           <button type="button" class="m-btn m-btn--secondary m-btn--sm hud__menu-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="hud-menu">メニュー</button>
           <div id="hud-menu" class="m-panel m-panel--dark hud__menu" role="menu" hidden>
@@ -211,8 +230,57 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
       <p class="hud__info-desc"></p>
       <button type="button" class="m-btn m-btn--secondary m-btn--sm hud__info-close">閉じる（Esc）</button>
     </aside>
+    <div class="m-panel m-panel--dark hud__guide" role="dialog" aria-labelledby="hud-guide-title" hidden>
+      <div class="m-eyebrow">Guide</div>
+      <h2 id="hud-guide-title" class="hud__guide-title"></h2>
+      <p class="hud__guide-text"></p>
+      <div class="hud__inspector-actions">
+        <button type="button" class="m-btn m-btn--primary m-btn--sm hud__guide-ok">わかった</button>
+        <button type="button" class="m-btn m-btn--secondary m-btn--sm hud__guide-help">操作の一覧（?）</button>
+      </div>
+    </div>
     <div class="m-toast hud__toast" role="status" aria-live="polite" hidden></div>
   </div>
+  <dialog class="help" aria-labelledby="help-title">
+    <div class="help__head">
+      <div><div class="m-eyebrow">Help</div><h2 id="help-title">操作のヘルプ</h2></div>
+      <form method="dialog"><button class="m-btn m-btn--secondary m-btn--sm" value="close">閉じる（Esc）</button></form>
+    </div>
+    <div class="help__grid">
+      <section>
+        <h3>歩いて見る（鑑賞）</h3>
+        <dl>
+          <dt>見回す</dt><dd>ドラッグ（スマホは指で）／ <kbd class="m-kbd">Q</kbd><kbd class="m-kbd">E</kbd></dd>
+          <dt>歩く</dt><dd><kbd class="m-kbd">W</kbd><kbd class="m-kbd">A</kbd><kbd class="m-kbd">S</kbd><kbd class="m-kbd">D</kbd>・矢印キー（スマホは右下のボタン）、<kbd class="m-kbd">Shift</kbd> で速く</dd>
+          <dt>作品の解説</dt><dd>作品をクリック。<kbd class="m-kbd">Esc</kbd> で閉じる</dd>
+        </dl>
+      </section>
+      <section>
+        <h3>作品ごとの操作</h3>
+        <dl>
+          <dt>HTML 作品</dt><dd>3D の壁の上で、ボタン・スライダーをそのまま操作（Chrome 157 以降。ほかのブラウザはクリックで開くパネル）</dd>
+          <dt>動画・音</dt><dd>クリックで再生・一時停止。音は近づくほど大きく聞こえる</dd>
+          <dt>3D 作品</dt><dd>クリックで近くで回して見る（ドラッグで回す、ホイール・＋−で寄る、<kbd class="m-kbd">Esc</kbd> で戻る）</dd>
+        </dl>
+      </section>
+      <section>
+        <h3>建てる・飾る（編集、PC のみ）</h3>
+        <dl>
+          <dt>道具</dt><dd>選択 <kbd class="m-kbd">V</kbd>・床 <kbd class="m-kbd">F</kbd>・壁 <kbd class="m-kbd">G</kbd>・作品 <kbd class="m-kbd">B</kbd>・削除 <kbd class="m-kbd">X</kbd></dd>
+          <dt>選んだもの</dt><dd><kbd class="m-kbd">M</kbd> で作品を移動、<kbd class="m-kbd">Delete</kbd> で削除、<kbd class="m-kbd">Esc</kbd> で解除・取り消し</dd>
+          <dt>視点</dt><dd>ドラッグで回す、ホイールで寄る、<kbd class="m-kbd">W</kbd><kbd class="m-kbd">A</kbd><kbd class="m-kbd">S</kbd><kbd class="m-kbd">D</kbd> でずらす、<kbd class="m-kbd">Q</kbd><kbd class="m-kbd">E</kbd> で回す</dd>
+        </dl>
+      </section>
+      <section>
+        <h3>保存・共有</h3>
+        <dl>
+          <dt>自動保存</dt><dd>編集はこのブラウザに自動で保存。タイトルの「続きから」で開く</dd>
+          <dt>JSON</dt><dd>メニューから書き出し・読み込み（人に渡すとき・別の端末で開くとき）</dd>
+          <dt>共有 URL</dt><dd>メニュー「共有用の URL をコピー」でサンプル美術館を直接開く URL</dd>
+        </dl>
+      </section>
+    </div>
+  </dialog>
 </div>`;
 
   const q = <T extends HTMLElement>(sel: string) => root.querySelector<T>(sel)!;
@@ -267,6 +335,42 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
       setMenuOpen(false);
       menuBtn.focus();
     }
+  });
+
+  // ---- 操作のヘルプと初回の案内（TMS 62）----
+  const help = q<HTMLDialogElement>('.help');
+  const openHelp = () => {
+    if (!help.open) help.showModal();
+  };
+  q<HTMLButtonElement>('.hud__help-btn').addEventListener('click', openHelp);
+  window.addEventListener('keydown', (e) => {
+    const el = e.target as HTMLElement;
+    const isHelpKey = e.key === '?' || (e.code === 'Slash' && e.shiftKey); // 配列の違い（JIS・US）に関係なく
+    if (!isHelpKey || hud.hidden || el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+    e.preventDefault();
+    openHelp();
+  });
+  const guide = q<HTMLElement>('.hud__guide');
+  const seenGuides = (): string[] => {
+    try {
+      return JSON.parse(localStorage.getItem(GUIDE_KEY) ?? '[]') as string[];
+    } catch {
+      return [];
+    }
+  };
+  let guideKind = '';
+  const closeGuide = () => {
+    guide.hidden = true;
+    try {
+      localStorage.setItem(GUIDE_KEY, JSON.stringify([...new Set([...seenGuides(), guideKind])]));
+    } catch {
+      /* 保存できない環境では、次回もう一度出るだけ */
+    }
+  };
+  q<HTMLButtonElement>('.hud__guide-ok').addEventListener('click', closeGuide);
+  q<HTMLButtonElement>('.hud__guide-help').addEventListener('click', () => {
+    closeGuide();
+    openHelp();
   });
 
   const inspectBar = q<HTMLElement>('.hud__inspect');
@@ -379,6 +483,19 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
     setMenuLabel(action, label) {
       const b = menu.querySelector<HTMLButtonElement>(`[data-action="${action}"]`);
       if (b) b.textContent = label;
+    },
+    openHelp,
+    showGuide(kind, touch) {
+      const g = GUIDES[kind];
+      const textBody = touch ? g.touch : g.pc;
+      if (!textBody || seenGuides().includes(kind)) {
+        guide.hidden = true;
+        return;
+      }
+      guideKind = kind;
+      q<HTMLElement>('.hud__guide-title').textContent = g.title;
+      q<HTMLElement>('.hud__guide-text').textContent = textBody;
+      guide.hidden = false;
     },
     setInspecting(inspecting) {
       hud.dataset.inspect = String(inspecting);
