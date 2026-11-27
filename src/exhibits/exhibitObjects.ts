@@ -3,13 +3,13 @@
 // ライブラリ（data 層）は直接 import せず、main.ts から resolve 関数で受け取る。
 import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import type { ExhibitAsset, ExhibitPlacement, MuseumDocument, RoomPart } from '../types/museum';
+import type { ExhibitAsset, ExhibitPlacement, MuseumDocument } from '../types/museum';
 import { buildHtmlExhibit } from './htmlExhibit';
 
 export type ResolveAsset = (id: string) => ExhibitAsset | undefined;
 
-/** 床の作品の台座の高さ（m） */
-export const PEDESTAL_HEIGHT = 0.85;
+import { PEDESTAL_HEIGHT } from './obstacles';
+export { PEDESTAL_HEIGHT, exhibitObstacles } from './obstacles';
 const PEDESTAL_COLOR = '#eeebe5';
 const FRAME_COLOR = '#262c30';
 const FRAME_DEPTH = 0.06;
@@ -452,18 +452,6 @@ export function buildExhibits(scene: THREE.Scene, doc: MuseumDocument, resolve: 
   };
 }
 
-/** 床の作品の台座を、当たり判定用の箱として返す（通り抜け防止。TMS 38） */
-export function exhibitObstacles(doc: MuseumDocument, resolve: ResolveAsset): RoomPart[] {
-  const out: RoomPart[] = [];
-  for (const p of doc.exhibits) {
-    const a = resolve(p.assetId);
-    if (!a || a.mount !== 'floor') continue;
-    // 回した正方形の台座を囲む軸に沿った正方形（一辺 = 幅 ×（|cos| + |sin|））
-    const w = a.size[0] * (Math.abs(Math.cos(p.rotationY)) + Math.abs(Math.sin(p.rotationY)));
-    out.push({ id: `obstacle-${p.id}`, type: 'pedestal', position: [p.position[0], PEDESTAL_HEIGHT / 2, p.position[2]], size: [w, PEDESTAL_HEIGHT, w] });
-  }
-  return out;
-}
 
 const raycaster = new THREE.Raycaster();
 const ndc = new THREE.Vector2();

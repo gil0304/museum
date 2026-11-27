@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createCollider, BODY_RADIUS } from '../src/scene/collision.ts';
 import { sampleMuseum } from '../src/data/sampleMuseum.ts';
 import { findAsset } from '../src/data/library.ts';
-import { exhibitObstacles } from '../src/exhibits/exhibitObjects.ts';
+import { exhibitObstacles } from '../src/exhibits/obstacles.ts';
 import type { MuseumDocument } from '../src/types/museum.ts';
 
 type P = [number, number, number];
