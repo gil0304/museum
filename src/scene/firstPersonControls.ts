@@ -80,6 +80,7 @@ export function attachFirstPersonControls(
   // ---- ドラッグで見回す（TMS 36）----
   canvas.addEventListener('pointerdown', (e) => {
     if (!enabled || drag.id >= 0) return; // 2 本目の指は無視する
+    if (e.target !== canvas) return; // canvas の中の HTML 作品（TMS 53）から始まった操作は作品のもの
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     drag.id = e.pointerId;
     drag.x = drag.startX = e.clientX;

@@ -16,6 +16,7 @@ import { createCollider } from './scene/collision';
 import { updateTitleCamera } from './scene/titleCamera';
 import { createEditor } from './editor/editor';
 import { buildExhibits, exhibitObstacles, pickExhibit, type ExhibitSet, type ExhibitView } from './exhibits/exhibitObjects';
+import { initHtmlExhibits, setHtmlInteractive } from './exhibits/htmlExhibit';
 import { LIBRARY, findAsset } from './data/library';
 import { mountShell, type EditTool, type StartKind, type ViewMode } from './ui/shell';
 
@@ -64,7 +65,8 @@ let work: { kind: StartKind; doc: MuseumDocument } | null = null;
 let tool: EditTool = 'select';
 
 let room: RoomScene = createRoomScene(sampleMuseum, roomOptions);
-let exhibits: ExhibitSet = buildExhibits(room.scene, sampleMuseum, findAsset); // 作品（TMS 44〜）
+// 作品（TMS 44〜）。HTML 作品は 3D の canvas ができてから作るので、最初は空で始めて viewer の後に作り直す
+let exhibits: ExhibitSet = buildExhibits(room.scene, { ...sampleMuseum, exhibits: [] }, findAsset);
 let shownDoc: MuseumDocument = sampleMuseum;
 let collider = createCollider(sampleMuseum, exhibitObstacles(sampleMuseum, findAsset)); // 壁・台座・床の当たり判定（TMS 38）
 const overlay = createEditOverlay(); // グリッドなど編集用の表示（TMS 39〜）
@@ -87,7 +89,6 @@ const shell = mountShell(app, {
 });
 
 const viewer = createViewer(shell.viewport, room.scene, room.camera, (dt, t) => {
-  exhibits.update(dt, room.camera);
   if (screen === 'title') updateTitleCamera(room.camera, t, reducedMotion.matches);
   else if (screen === 'view') {
     if (inspect.active) inspect.update(dt);
@@ -97,6 +98,15 @@ const viewer = createViewer(shell.viewport, room.scene, room.camera, (dt, t) => 
     editCamera.update(dt);
     overlay.updateCutaway(room, room.camera, true);
   }
+  exhibits.update(dt, room.camera); // カメラを動かした後（HTML 作品のクリック判定の位置合わせ）
+});
+// HTML 作品（TMS 53）：3D の canvas を HTML in Canvas の描画先にし、最初の部屋を作り直して HTML 作品を入れる
+initHtmlExhibits(viewer.canvas, viewer.renderer);
+show(sampleMuseum, true);
+// HTML 作品のスライダーで展示室の明るさを変える（パネルが canvas の中でも、代替表示のダイアログの中でも届く）
+const BASE_AMBIENT = room.lights.ambient.intensity;
+document.addEventListener('museum:light', (e) => {
+  room.lights.ambient.intensity = BASE_AMBIENT * (0.25 + (1.5 * (e as CustomEvent<number>).detail) / 100);
 });
 watchExhibitLoads(); // 最初の部屋の分
 const controls = attachFirstPersonControls(viewer.canvas, () => room.camera, {
@@ -114,6 +124,7 @@ function startInspect(view: ExhibitView) {
   const radius = box.getSize(new THREE.Vector3()).length() / 2;
   const cam = room.camera.position;
   controls.setEnabled(false);
+  setHtmlInteractive(false);
   inspect.start(center.toArray(), radius, Math.atan2(cam.x - center.x, cam.z - center.z));
   shell.setInspecting(true);
 }
@@ -121,7 +132,10 @@ function endInspect() {
   if (!inspect.active) return;
   inspect.stop();
   shell.setInspecting(false);
-  if (screen === 'view') controls.setEnabled(true); // 立っていた場所・向きに戻る
+  if (screen === 'view') {
+    controls.setEnabled(true); // 立っていた場所・向きに戻る
+    setHtmlInteractive(true);
+  }
 }
 
 // ---- 作品をクリックすると作品情報パネル（TMS 46）----
@@ -215,6 +229,7 @@ function route() {
     screen = 'title';
     controls.setEnabled(false);
     editCamera.setEnabled(false);
+    setHtmlInteractive(false);
     overlay.setVisible(false);
     overlay.updateCutaway(room, room.camera, false);
     editor.clearSelection();
@@ -252,8 +267,10 @@ function route() {
     overlay.updateCutaway(room, room.camera, false);
     if (fresh || prev === 'title') controls.reset(room.spawn); // 部屋の手前から奥を向いて立つ
     controls.setEnabled(true); // 編集から戻ったときは、編集前に立っていた場所から続ける
+    setHtmlInteractive(true); // HTML 作品は鑑賞中だけ直接操作できる
   } else {
     controls.setEnabled(false);
+    setHtmlInteractive(false); // 編集中は HTML 作品も選んで動かす対象
     if (fresh || prev !== 'edit') resetEditCamera(doc);
     editCamera.setEnabled(true);
     overlay.setVisible(true);

@@ -71,6 +71,24 @@ const supportsHtmlInCanvas =
 - 本体の描画（`src/scene/viewer.ts`）は TMS 35 から **Neutral トーンマッピング**と**影**を使う。HTML作品の板の材質は `toneMapped: false` にし、照明の影響を受けない材質（`MeshBasicMaterial`）にして、HTML の色をそのまま出す（検証ページ `hic-three` はトーンマッピングなしで色の一致 135/135 を確認済み）。
 - 影は部屋が変わったときだけ描き直す（`renderer.shadowMap.autoUpdate = false`）。HTML作品の板を動かしたら `viewer.invalidateShadows()` を呼ぶ。
 
+## 本体アプリへの組み込み（TMS 53、`src/exhibits/htmlExhibit.ts`・`htmlTemplates.ts`）
+- 公式テンプレート「拍手のカウンター」（`template: 'clap-counter'`）を、作品ライブラリの HTML 作品として壁に掛ける。データからはテンプレート名で選ぶだけで、任意の HTML・JS は受け取らない（知らない名前・`toString` などは何も作らない）。
+- 対応ブラウザ：本体の 3D canvas に `content="drawable"` を付け、パネルを子に入れる。`paint` のたびに `texElementSubImage2D` でテクスチャへ転送（材質は `MeshBasicMaterial`・`toneMapped: false`）。毎フレーム、カメラを動かした後に `updateElementGeometry`（CSS px）を更新する。
+- クリック判定を外すとき：裏から見ている・9m より遠い・あいだに壁がある・鑑賞以外（編集・タイトル・3D 作品を近くで見ている）。編集中は HTML 作品も他の作品と同じく選んで動かせる。
+- 視点操作（一人称・編集・近くで見る）は `e.target !== canvas` のポインター操作を無視し、パネルの中から始まったドラッグ（スライダー）で視点が動かないようにした。
+- スライダーは `museum:light` を発行し、展示室の半球光の明るさを変える（HTML が 3D の世界を動かす例）。
+- 非対応・`?fallback=1`：平面に「作品名・今の様子・▶ クリックして操作する」を描き、クリックで同じパネルを `<dialog>` に移す（ボタンにフォーカス、Esc・閉じるで戻る、案内は操作に合わせて描き直す）。
+
+### TMS 53 の確認（Claude in Chrome、2026-11-27）
+| 確認 | 結果 |
+|---|---|
+| 正面から「拍手する」×3 → 3 | ✅ |
+| スライダーを 50→89 にドラッグ → 展示室が明るくなる（半球光 1.5→2.38）、視点は動かない | ✅ |
+| 斜め（入口付近）から「拍手する」「リセット」 | ✅ 4 → 0 |
+| 編集モードでクリック → ボタンは押されず、作品として選択される | ✅ |
+| `?fallback=1`：案内表示 → クリックでダイアログ → Enter×2 で 2 → Esc で閉じ、案内が「拍手 2 回」に | ✅ |
+| 人間の実機確認・本物の非対応ブラウザ（Safari / Firefox） | 未実施（TMS 66） |
+
 ## 検証記録（自動チェック）
 - 実行環境: macOS、Google Chrome 157.0.8103.79（`--headless=new`、127.0.0.1 から配信したページ、安全なコンテキスト）
 - 存在を確認したもの: `drawElementImage`、`requestPaint`、`onpaint`、`captureElementImage`、`updateElementGeometry`、`clearElementGeometry`、`getElementTransform`、`getElementImageDefaultSize`、`onelementgeometryupdate`、`texElementSubImage2D`（WebGL1/2）、`GPUQueue.drawElementImageToTexture`、`CanvasPaintEvent`、`ElementImage`

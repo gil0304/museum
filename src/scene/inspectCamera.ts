@@ -32,6 +32,7 @@ export function attachInspectCamera(
 
   canvas.addEventListener('pointerdown', (e) => {
     if (!active || drag.id >= 0) return;
+    if (e.target !== canvas) return; // canvas の中の HTML 作品（TMS 53）から始まった操作は作品のもの
     drag.id = e.pointerId;
     drag.x = e.clientX;
     drag.y = e.clientY;

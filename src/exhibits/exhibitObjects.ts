@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { ExhibitAsset, ExhibitPlacement, MuseumDocument, RoomPart } from '../types/museum';
+import { buildHtmlExhibit } from './htmlExhibit';
 
 export type ResolveAsset = (id: string) => ExhibitAsset | undefined;
 
@@ -405,6 +406,7 @@ export function buildExhibit(placement: ExhibitPlacement, asset: ExhibitAsset): 
   else if (asset.type === 'image') piece = buildWallPiece(asset, faceMaterials(asset, view)); // TMS 45
   else if (asset.type === 'video') Object.assign(view, buildVideo(asset, view, (p) => (piece = p)));
   else if (asset.type === 'audio') Object.assign(view, buildAudio(asset, view, (p) => (piece = p)));
+  else if (asset.type === 'interactive-html') Object.assign(view, buildHtmlExhibit(asset, view, (p) => (piece = p))); // TMS 53
   else if (asset.type === 'text') {
     // 文章作品（TMS 48）：紙のパネル。側面は紙の色、正面に文字
     const side = standard(PAPER);

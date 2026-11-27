@@ -62,6 +62,7 @@ export function attachEditCamera(
 
   canvas.addEventListener('pointerdown', (e) => {
     if (!enabled || press.id >= 0) return;
+    if (e.target !== canvas) return; // canvas の中の HTML 作品（TMS 53）から始まった操作は作品のもの
     if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 2) return;
     Object.assign(press, { id: e.pointerId, x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, dragging: false });
     canvas.setPointerCapture(e.pointerId);
