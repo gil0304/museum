@@ -30,6 +30,18 @@ export interface ShellOptions {
   onClearSelection(): void;
 }
 
+/** 鑑賞中の作品情報パネル（TMS 46） */
+export interface ExhibitInfo {
+  /** 例：「EXHIBIT / 002 ・ 画像」 */
+  eyebrow: string;
+  title: string;
+  /** 例：「MUSEUM サンプル作品 ・ 2026」 */
+  meta: string;
+  description: string;
+  /** HTML作品のとき「◆ 操作できるHTML作品」を出す */
+  interactive: boolean;
+}
+
 /** 情報パネルに出す選択中のパーツ（TMS 42） */
 export interface InspectorInfo {
   /** 例：「壁 10m」 */
@@ -58,6 +70,8 @@ export interface Shell {
   toast(message: string): void;
   /** 右上の情報パネル（選択中のパーツ）。null で隠す */
   showInspector(info: InspectorInfo | null): void;
+  /** 右下の作品情報パネル（鑑賞中）。null で隠す（TMS 46） */
+  showExhibitInfo(info: ExhibitInfo | null): void;
 }
 
 const TOOLS: { tool: EditTool; label: string; key: string; icon: string }[] = [
@@ -123,6 +137,14 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
         <button type="button" class="m-btn m-btn--secondary m-btn--sm hud__deselect">選択を解除（Esc）</button>
       </div>
     </aside>
+    <aside class="m-panel hud__info" aria-labelledby="hud-info-title" hidden>
+      <div class="m-eyebrow hud__info-eyebrow"></div>
+      <h2 id="hud-info-title" class="hud__info-title"></h2>
+      <p class="m-muted hud__info-meta"></p>
+      <p class="hud__info-badge" hidden><span class="m-badge">◆ 操作できるHTML作品</span></p>
+      <p class="hud__info-desc"></p>
+      <button type="button" class="m-btn m-btn--secondary m-btn--sm hud__info-close">閉じる（Esc）</button>
+    </aside>
     <div class="m-toast hud__toast" role="status" aria-live="polite" hidden></div>
   </div>
 </div>`;
@@ -137,6 +159,12 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
   const editTool = q<HTMLElement>('.hud__edit-tool');
   const toastEl = q<HTMLElement>('.hud__toast');
   const inspector = q<HTMLElement>('.hud__inspector');
+  const info = q<HTMLElement>('.hud__info');
+  q<HTMLButtonElement>('.hud__info-close').addEventListener('click', () => (info.hidden = true));
+  // 鑑賞中の Esc は作品情報パネルを閉じる
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Escape' && !info.hidden) info.hidden = true;
+  });
   q<HTMLButtonElement>('.hud__delete').addEventListener('click', () => opts.onDeleteSelected());
   q<HTMLButtonElement>('.hud__deselect').addEventListener('click', () => opts.onClearSelection());
   const continueBtn = q<HTMLButtonElement>('[data-start="continue"]');
@@ -218,6 +246,16 @@ export function mountShell(root: HTMLElement, opts: ShellOptions): Shell {
       if (!info) return;
       q<HTMLElement>('.hud__inspector-label').textContent = info.label;
       q<HTMLElement>('.hud__inspector-where').textContent = info.where;
+    },
+    showExhibitInfo(next) {
+      info.hidden = !next;
+      if (!next) return;
+      // すべて textContent（作品の文字列を HTML として解釈しない）
+      q<HTMLElement>('.hud__info-eyebrow').textContent = next.eyebrow;
+      q<HTMLElement>('.hud__info-title').textContent = next.title;
+      q<HTMLElement>('.hud__info-meta').textContent = next.meta;
+      q<HTMLElement>('.hud__info-desc').textContent = next.description;
+      q<HTMLElement>('.hud__info-badge').hidden = !next.interactive;
     },
     toast(message) {
       toastEl.textContent = message;

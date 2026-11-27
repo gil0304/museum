@@ -165,3 +165,34 @@ export function exhibitObstacles(doc: MuseumDocument, resolve: ResolveAsset): Ro
   }
   return out;
 }
+
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+
+/**
+ * 画面の点にある作品を返す（いちばん手前）。壁・床に隠れた作品は返さない（blockers に部屋のパーツを渡す）。
+ * x, y は canvas 内の CSS px
+ */
+export function pickExhibit(
+  set: ExhibitSet,
+  camera: THREE.Camera,
+  canvas: HTMLCanvasElement,
+  x: number,
+  y: number,
+  blockers: THREE.Object3D[] = [],
+  maxDistance = 12,
+): ExhibitView | null {
+  const rect = canvas.getBoundingClientRect();
+  ndc.set((x / rect.width) * 2 - 1, -(y / rect.height) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  raycaster.far = maxDistance;
+  const groups = [...set.views.values()].map((v) => v.group);
+  const hits = raycaster.intersectObjects([...groups, ...blockers], true);
+  for (const h of hits) {
+    let o: THREE.Object3D | null = h.object;
+    while (o && o.userData.exhibitId === undefined) o = o.parent;
+    if (!o) return null; // 先に壁・床に当たった
+    return set.views.get(o.userData.exhibitId as string) ?? null;
+  }
+  return null;
+}

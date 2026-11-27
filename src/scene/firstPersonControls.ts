@@ -57,12 +57,19 @@ const RUN_KEYS = new Set(['ShiftLeft', 'ShiftRight']);
 export function attachFirstPersonControls(
   canvas: HTMLCanvasElement,
   getCamera: () => THREE.PerspectiveCamera,
-  options: { reducedMotion?: () => boolean; constrain?: MoveConstraint } = {},
+  options: {
+    reducedMotion?: () => boolean;
+    constrain?: MoveConstraint;
+    /** ドラッグせずに押して離した（作品のクリック。TMS 46）。座標は canvas 内の CSS px */
+    onTap?: (x: number, y: number) => void;
+  } = {},
 ): FirstPersonControls {
   const current: ViewPose = { position: [0, 1.6, 0], yaw: 0, pitch: 0 };
   const target = { yaw: 0, pitch: 0 };
   const velocity = { x: 0, z: 0 };
-  const drag = { id: -1, x: 0, y: 0 };
+  const drag = { id: -1, x: 0, y: 0, startX: 0, startY: 0 };
+  /** これより動いたらドラッグ（見回し）、動かなければクリック（px） */
+  const TAP_SLOP = 6;
   const keys = new Set<string>();
   let external: MoveInput = { forward: 0, strafe: 0 };
   let enabled = false;
@@ -75,8 +82,8 @@ export function attachFirstPersonControls(
     if (!enabled || drag.id >= 0) return; // 2 本目の指は無視する
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     drag.id = e.pointerId;
-    drag.x = e.clientX;
-    drag.y = e.clientY;
+    drag.x = drag.startX = e.clientX;
+    drag.y = drag.startY = e.clientY;
     canvas.setPointerCapture(e.pointerId);
     setCursor();
   });
@@ -92,7 +99,15 @@ export function attachFirstPersonControls(
     drag.id = -1;
     setCursor();
   };
-  canvas.addEventListener('pointerup', endDrag);
+  canvas.addEventListener('pointerup', (e) => {
+    if (e.pointerId !== drag.id) return;
+    const tap = Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) <= TAP_SLOP;
+    endDrag(e);
+    if (tap && enabled) {
+      const r = canvas.getBoundingClientRect();
+      options.onTap?.(e.clientX - r.left, e.clientY - r.top);
+    }
+  });
   canvas.addEventListener('pointercancel', endDrag);
   canvas.addEventListener('lostpointercapture', endDrag);
 

@@ -13,7 +13,7 @@ import { createEditOverlay, GRID_HALF } from './scene/editOverlay';
 import { createCollider } from './scene/collision';
 import { updateTitleCamera } from './scene/titleCamera';
 import { createEditor } from './editor/editor';
-import { buildExhibits, exhibitObstacles, type ExhibitSet } from './exhibits/exhibitObjects';
+import { buildExhibits, exhibitObstacles, pickExhibit, type ExhibitSet, type ExhibitView } from './exhibits/exhibitObjects';
 import { findAsset } from './data/library';
 import { mountShell, type EditTool, type StartKind, type ViewMode } from './ui/shell';
 
@@ -83,7 +83,33 @@ const viewer = createViewer(shell.viewport, room.scene, room.camera, (dt, t) => 
 const controls = attachFirstPersonControls(viewer.canvas, () => room.camera, {
   reducedMotion: () => reducedMotion.matches,
   constrain: (from, to) => collider.constrain(from, to),
+  onTap: (x, y) => openExhibit(x, y),
 });
+
+// ---- 作品をクリックすると作品情報パネル（TMS 46）----
+const TYPE_LABEL: Record<string, string> = {
+  image: '画像',
+  text: '文章',
+  video: '動画',
+  audio: '音',
+  glb: '3D',
+  'interactive-html': 'HTML作品',
+};
+function exhibitInfo(view: ExhibitView) {
+  const { placement: p, asset: a } = view;
+  const no = String(work!.doc.exhibits.findIndex((e) => e.id === p.id) + 1).padStart(3, '0');
+  return {
+    eyebrow: `Exhibit / ${no} ・ ${TYPE_LABEL[a.type]}`,
+    title: p.title ?? a.title,
+    meta: [a.author, a.year].filter(Boolean).join(' ・ '),
+    description: p.description ?? a.description,
+    interactive: a.type === 'interactive-html',
+  };
+}
+function openExhibit(x: number, y: number) {
+  const view = pickExhibit(exhibits, room.camera, viewer.canvas, x, y, [...room.parts.values()]);
+  if (view) shell.showExhibitInfo(exhibitInfo(view));
+}
 const editCamera = attachEditCamera(viewer.canvas, () => room.camera, {
   panLimit: GRID_HALF,
   reducedMotion: () => reducedMotion.matches,
@@ -165,6 +191,7 @@ function route() {
   redirecting = false;
   const prev = screen;
   screen = mode;
+  shell.showExhibitInfo(null);
   if (mode === 'view') {
     editor.clearSelection();
     editCamera.setEnabled(false);
