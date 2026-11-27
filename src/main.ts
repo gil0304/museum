@@ -8,6 +8,7 @@ import { emptyRoom } from './data/emptyRoom';
 import { createRoomScene, disposeRoomScene, type RoomScene } from './scene/room';
 import { createViewer } from './scene/viewer';
 import { attachFirstPersonControls } from './scene/firstPersonControls';
+import { createCollider } from './scene/collision';
 import { updateTitleCamera } from './scene/titleCamera';
 import { mountShell, type StartKind } from './ui/shell';
 
@@ -40,6 +41,7 @@ const roomOptions = { shadowMapSize: window.matchMedia('(pointer: coarse)').matc
 let mode: 'title' | 'viewer' = 'title';
 let room: RoomScene = createRoomScene(sampleMuseum, roomOptions);
 let shownDoc: MuseumDocument = sampleMuseum;
+let collider = createCollider(sampleMuseum); // 壁・展示台・床の当たり判定（TMS 38）
 
 const shell = mountShell(app, {
   onStart: (kind) => (location.hash = `#/view/${kind}`),
@@ -51,12 +53,16 @@ const viewer = createViewer(shell.viewport, room.scene, room.camera, (dt, t) => 
   if (mode === 'title') updateTitleCamera(room.camera, t, reducedMotion.matches);
   else controls.update(dt);
 });
-const controls = attachFirstPersonControls(viewer.canvas, () => room.camera, { reducedMotion: () => reducedMotion.matches });
+const controls = attachFirstPersonControls(viewer.canvas, () => room.camera, {
+  reducedMotion: () => reducedMotion.matches,
+  constrain: (from, to) => collider.constrain(from, to),
+});
 
 function show(doc: MuseumDocument) {
   if (doc === shownDoc) return;
   disposeRoomScene(room);
   room = createRoomScene(doc, roomOptions);
+  collider = createCollider(doc);
   shownDoc = doc;
   viewer.setScene(room.scene, room.camera);
 }

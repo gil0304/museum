@@ -5,7 +5,7 @@
 
 「デプロイナウコンテスト byGMOペパボ」応募作品（ロリポップ！デプロイナウで静的配信）。
 
-> **現在の状態:** HTML in Canvas の技術検証が完了（TMS 22〜29）。タイトル画面からサンプル美術館・空の部屋に入れる（TMS 33）。展示室は床・壁（高さ3m）・天井と、固定の照明・影を持つ（TMS 34〜35）。鑑賞は一人称で、ドラッグ・Q/E で見回し、WASD・矢印キー（スマホは移動ボタン）で歩ける（TMS 36〜37）。壁の通り抜け防止・建築・展示はこれから実装する。
+> **現在の状態:** HTML in Canvas の技術検証が完了（TMS 22〜29）。タイトル画面からサンプル美術館・空の部屋に入れる（TMS 33）。展示室は床・壁（高さ3m）・天井と、固定の照明・影を持つ（TMS 34〜35）。鑑賞は一人称で、ドラッグ・Q/E で見回し、WASD・矢印キー（スマホは移動ボタン）で歩ける。壁・展示台は通り抜けない（TMS 36〜38）。建築・展示はこれから実装する。
 
 ## 提出版でできること（予定）
 - タイトル画面から1クリックでサンプル美術館に入り、歩いて鑑賞する
@@ -81,7 +81,8 @@ npm run build        # 型チェック + 本番ビルド（dist/）
 npm run preview      # dist/ をローカルで配信して確認（http://localhost:4173）
 npm run verify:dist  # dist/ を公開前に点検（tools/check-dist.mjs）
 npm run check:layers # フォルダ間の依存ルールを点検（tools/check-layers.mjs）
-npm run release      # check:layers + build + verify:dist（公開前はこれ）
+npm test             # 計算部分の自動テスト（当たり判定など。tests/）
+npm run release      # check:layers + test + build + verify:dist（公開前はこれ）
 ```
 
 技術: TypeScript / Vite / Three.js。サーバーを持たない**静的サイト**として動く。
