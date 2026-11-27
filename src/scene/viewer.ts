@@ -8,6 +8,8 @@ export interface Viewer {
   setScene(scene: THREE.Scene, camera: THREE.PerspectiveCamera): void;
   /** 次のフレームで影を描き直す（部屋のパーツ・作品を動かしたとき） */
   invalidateShadows(): void;
+  /** 画質（TMS 64）。影の有無を変えたら、材質を作り直すため部屋を作り直すこと */
+  setQuality(q: { pixelRatio: number; shadows: boolean }): void;
   dispose(): void;
 }
 
@@ -69,6 +71,12 @@ export function createViewer(
     },
     invalidateShadows() {
       renderer.shadowMap.needsUpdate = true;
+    },
+    setQuality({ pixelRatio, shadows }) {
+      renderer.setPixelRatio(pixelRatio);
+      renderer.shadowMap.enabled = shadows;
+      renderer.shadowMap.needsUpdate = true;
+      fitCamera();
     },
     dispose() {
       running = false;

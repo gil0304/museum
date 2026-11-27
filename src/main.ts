@@ -34,11 +34,13 @@ if (!document.createElement('canvas').getContext('webgl2')) {
 /**
  * 作品ライブラリから作品を引く。開発時だけ `?break=assets` で素材のパスをわざと壊し、読み込み失敗の表示を確かめられる（TMS 63）
  */
-const breakAssets = import.meta.env.DEV && new URLSearchParams(location.search).get('break') === 'assets';
-const resolveAsset = (id: string) => {
-  const a = findAsset(id);
-  return a && breakAssets && a.src ? { ...a, src: `${a.src}.missing` } : a;
-};
+const resolveAsset =
+  import.meta.env.DEV && new URLSearchParams(location.search).get('break') === 'assets'
+    ? (id: string) => {
+        const a = findAsset(id);
+        return a && a.src ? { ...a, src: `${a.src}.missing` } : a;
+      }
+    : findAsset;
 
 // ---- ブラウザ内の保存（TMS 57）----
 // 編集するたびに、作業中の美術館を localStorage に保存する（JSON の書き出しと同じ形）。タイトルの「続きから」で開く。
@@ -125,7 +127,7 @@ const shell = mountShell(app, {
   onMenu: (action) => runMenu(action),
   onImportFile: (file) => void importFile(file),
 });
-shell.setMenuItems(['export', 'import', 'share', 'help']);
+shell.setMenuItems(['export', 'import', 'share', 'quality', 'help']);
 
 const viewer = createViewer(shell.viewport, room.scene, room.camera, (dt, t) => {
   if (screen === 'title') updateTitleCamera(room.camera, t, reducedMotion.matches);
@@ -139,9 +141,38 @@ const viewer = createViewer(shell.viewport, room.scene, room.camera, (dt, t) => 
   }
   exhibits.update(dt, room.camera); // カメラを動かした後（HTML 作品のクリック判定の位置合わせ）
 });
+// ---- 画質（TMS 64）----
+// 標準：画面の解像度（最大 2 倍）・影あり。軽量：解像度 1 倍・影なし。選んだ画質はブラウザに覚える。
+// 初期値は、指で操作する端末（スマホ・タブレット）は軽量、それ以外は標準。
+type Quality = 'standard' | 'light';
+const QUALITY_KEY = 'museum.quality.v1';
+function savedQuality(): Quality | null {
+  try {
+    const q = localStorage.getItem(QUALITY_KEY);
+    return q === 'standard' || q === 'light' ? q : null;
+  } catch {
+    return null;
+  }
+}
+let quality: Quality = savedQuality() ?? (window.matchMedia('(pointer: coarse)').matches ? 'light' : 'standard');
+function setQuality(next: Quality, announce = false) {
+  quality = next;
+  viewer.setQuality({ pixelRatio: next === 'light' ? 1 : Math.min(window.devicePixelRatio, 2), shadows: next === 'standard' });
+  shell.setMenuLabel('quality', `画質：${next === 'light' ? '軽量' : '標準'}（切り替える）`);
+  show(shownDoc, true); // 影の有無で材質を作り直す
+  if (announce) {
+    try {
+      localStorage.setItem(QUALITY_KEY, next);
+    } catch {
+      /* 覚えられない環境では今回だけ */
+    }
+    shell.toast(next === 'light' ? '画質を「軽量」にしました（解像度 1 倍・影なし）' : '画質を「標準」にしました');
+  }
+}
+
 // HTML 作品（TMS 53）：3D の canvas を HTML in Canvas の描画先にし、最初の部屋を作り直して HTML 作品を入れる
 initHtmlExhibits(viewer.canvas, viewer.renderer);
-show(sampleMuseum, true);
+setQuality(quality); // 最初の部屋もここで作り直す（HTML 作品を入れる）
 // HTML 作品のスライダーで展示室の明るさを変える（パネルが canvas の中でも、代替表示のダイアログの中でも届く）
 const BASE_AMBIENT = room.lights.ambient.intensity;
 document.addEventListener('museum:light', (e) => {
@@ -266,6 +297,7 @@ function runMenu(action: string) {
   if (action === 'export' && work) exportJson(work.doc);
   if (action === 'share') void copyShareUrl();
   if (action === 'help') shell.openHelp();
+  if (action === 'quality') setQuality(quality === 'standard' ? 'light' : 'standard', true);
 }
 
 // ---- 共有用のデモ URL（TMS 59）----
